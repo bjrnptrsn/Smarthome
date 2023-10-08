@@ -1,0 +1,19 @@
+{
+    "availability_topic": "home/living/emergency_exit/status",
+    "device": {
+        "identifiers": [
+            "living_emergency_exit_esp"
+        ],
+        "manufacturer": "bjrnptrsn",
+        "model": "emergency_exit (esp8266)",
+        "name": "Wohnzimmer Notausgang",
+        "sw_version": "emergency_exit_v1"
+    },
+    "icon": "mdi:water-percent",
+    "name": "Luftfeuchtigkeit",
+    "device_class": "humidity",
+    "unit_of_measurement": "%",
+    "state_topic": "home/living/emergency_exit/ambient",
+    "unique_id": "living_emergency_exit_humidity",
+    "value_template": "{{ value_json.humidity }}"
+}

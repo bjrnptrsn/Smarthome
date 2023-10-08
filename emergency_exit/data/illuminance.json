@@ -1,0 +1,19 @@
+{
+    "availability_topic": "home/living/emergency_exit/status",
+    "device": {
+        "identifiers": [
+            "living_emergency_exit_esp"
+        ],
+        "manufacturer": "bjrnptrsn",
+        "model": "emergency_exit (esp8266)",
+        "name": "Wohnzimmer Notausgang",
+        "sw_version": "emergency_exit_v1"
+    },
+    "icon": "mdi:brightness-5",
+    "name": "Lichtsensor",
+    "device_class": "illuminance",
+    "unit_of_measurement": "lx",
+    "state_topic": "home/living/emergency_exit/ambient",
+    "unique_id": "living_emergency_exit_illuminance",
+    "value_template": "{{ value_json.illuminance }}"
+}

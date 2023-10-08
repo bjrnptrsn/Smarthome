@@ -1,0 +1,20 @@
+{
+    "availability_topic": "home/kitchen/dimmer/status",
+    "device": {
+        "identifiers": [
+            "kitchen_ac_dimmer_8266"
+        ],
+        "manufacturer": "bjrnptrsn",
+        "model": "ac_dimmer (esp8266)",
+        "name": "Küche Dimmer",
+        "sw_version": "ac_dimmer_v1"
+    },
+    "icon": "mdi:ceiling-light",
+    "name": "Licht",
+    "schema": "json",
+    "state_topic": "home/kitchen/dimmer/light",
+    "command_topic": "home/kitchen/dimmer/light/set",
+    "brightness": true,
+    "brightness_scale": 100,
+    "unique_id": "kitchen_dimmer_light"
+}

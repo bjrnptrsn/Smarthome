@@ -1,0 +1,20 @@
+{
+    "availability_topic": "home/bath/dimmer/status",
+    "device": {
+        "identifiers": [
+            "bath_ac_dimmer_esp"
+        ],
+        "manufacturer": "bjrnptrsn",
+        "model": "ac_dimmer (esp8266)",
+        "name": "Badezimmer Dimmer",
+        "sw_version": "ac_dimmer_v1"
+    },
+    "icon": "mdi:spotlight-beam",
+    "name": "Licht",
+    "schema": "json",
+    "state_topic": "home/bath/dimmer/light",
+    "command_topic": "home/bath/dimmer/light/set",
+    "brightness": true,
+    "brightness_scale": 100,
+    "unique_id": "bath_dimmer_light"
+}

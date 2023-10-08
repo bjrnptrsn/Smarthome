@@ -1,0 +1,17 @@
+{
+    "availability_topic": "home/hall/fusebox/status",
+    "device": {
+        "identifiers": [
+            "hall_fusebox_8266"
+        ],
+        "manufacturer": "bjrnptrsn",
+        "model": "fusebox (esp8266)",
+        "name": "Flur Sicherungskasten",
+        "sw_version": "fusebox_v1"
+    },
+    "icon": "mdi:gesture-tap",
+    "name": "Lichtschalter Flur",
+    "state_topic": "home/hall/fusebox/button1",
+    "unique_id": "hall_fusebox_button1",
+    "value_template": "{{ value_json.state }}"
+}

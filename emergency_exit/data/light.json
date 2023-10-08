@@ -1,0 +1,21 @@
+{
+    "availability_topic": "home/living/emergency_exit/status",
+    "device": {
+        "identifiers": [
+            "living_emergency_exit_esp"
+        ],
+        "manufacturer": "bjrnptrsn",
+        "model": "emergency_exit (esp8266)",
+        "name": "Wohnzimmer Notausgang",
+        "sw_version": "emergency_exit_v1"
+    },
+    "icon": "mdi:exit-run",
+    "name": "Licht",
+    "schema": "json",
+    "state_topic": "home/living/emergency_exit/light",
+    "command_topic": "home/living/emergency_exit/light/set",
+    "brightness": true,
+    "brightness_scale": 100,
+    "unique_id": "living_emergency_exit_light",
+    "value_template": "{{ value_json.state }}"
+}
