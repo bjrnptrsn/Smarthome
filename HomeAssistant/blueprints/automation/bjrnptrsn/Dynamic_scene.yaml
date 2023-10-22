@@ -120,10 +120,10 @@ variables:
     {% set sunset_dt = as_local(as_datetime(states('sensor.sun_next_setting')) + timedelta(minutes=3)) %}
     {{ as_local(now().combine(sunset_dt.date(), strptime(relax, '%H:%M:%S').time())) - sunset_dt <= timedelta(minutes=30) }}
   relax_time: >
-    {{ strptime(relax, '%H:%M:%S').time().replace(second=0) if not later_sunset else (now().combine(now().date(), strptime(sunset_time, '%H:%M:%S').time()) + timedelta(minutes=30)).time().replace(second=0) }}
+    {{ strptime(relax, '%H:%M:%S').time().replace(second=0) if not (later_sunset) else (now().combine(now().date(), strptime(sunset_time, '%H:%M:%S').time()) + timedelta(minutes=30)).time().replace(second=0) }}
   sleep: !input sleep
   sleep_time: >
-    {{ strptime(sleep, '%H:%M:%S').time().replace(second=0) if not later_sunset else (now().combine(now().date(), strptime(sunset_time, '%H:%M:%S').time()) + timedelta(minutes=60)).time().replace(second=0) }}
+    {{ strptime(sleep, '%H:%M:%S').time().replace(second=0) if not (later_sunset) else (now().combine(now().date(), strptime(sunset_time, '%H:%M:%S').time()) + timedelta(minutes=60)).time().replace(second=0) }}
   day_brightness: !input day_brightness
   night_time: !input night
   time_list: 
@@ -177,7 +177,7 @@ action:
           brightness_pct: "{{ brightness_list[active_slot-1] }}"
         target: !input light_target
   - if:
-      - "{{ message == 'enable' }}" 
+      - "{{ (message == 'enable') }}" 
     then:
       - service: light.turn_on
         data:

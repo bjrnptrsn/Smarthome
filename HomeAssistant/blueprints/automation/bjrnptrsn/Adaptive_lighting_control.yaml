@@ -241,7 +241,7 @@ condition:
     conditions:
       - "{{ ((trigger.id == 'motion_on') or (trigger.id == 'motion_off')) and ((blocker_state == 'off') or (blocker_state == 'unknown')) }}"
       - "{{ (trigger.id == 'singleclick') and (nightmode == true) }}"
-      - "{{ trigger.id == 'longpress' }}"
+      - "{{ (trigger.id == 'longpress') }}"
       - "{{ (trigger.id == 'timer') and (blocker_state == 'on') }}"
       - "{{ (trigger.id == 'energy') and (states(motion_entity) == 'off') and (lights_on_check == true) and (motion_last_seconds > (energy_save_delay * 60)) and ((blocker_state == 'off') or (blocker_state =='unknown')) }}"
 action:
@@ -280,10 +280,10 @@ action:
           - "{{ trigger.id == 'singleclick' }}"
           - condition: and
             conditions:
-              - "{{ trigger.id == 'motion_on' }}"
+              - "{{ (trigger.id == 'motion_on') }}"
               - "{{ (illuminance_sensor == []) or (illuminance_cutoff == 0) or (states(illuminance_sensor) | int <= illuminance_cutoff | int) }}"
-              - "{{ (use_elevation_check != true) or (state_attr('sun.sun', 'elevation') <= elevation_angle | float(90)) }}"
-              - "{{ nightmode == true }}"
+              - "{{ not (use_elevation_check) or (state_attr('sun.sun', 'elevation') <= elevation_angle | float(90)) }}"
+              - "{{ (nightmode == true) }}"
     then:
       - if:
           - "{{ automation_target != {} }}"

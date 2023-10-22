@@ -93,12 +93,12 @@ variables:
   heating_state: "{{ iif(states(heating.entity_id) != 'off') }}"
   room_open: "{{ (states(room_sensor) == 'on') if (room_sensor) else false }}"
   zone_open: "{{ (states(zone_sensor) == 'on') if (zone_sensor) else false }}"
-  room_diff: "{{ ((now() - states[room_sensor].last_changed).total_seconds() | int) if (room_sensor) else 999 }}"
-  zone_diff: "{{ ((now() - states[zone_sensor].last_changed).total_seconds() | int) if (zone_sensor) else 999 }}"
-  room_off_remain: "{{ max(room_off_delay - room_diff, 0) if (room_open) else (room_off_delay) }}"
-  room_on_remain: "{{ max(room_on_delay - room_diff, 0) if not (room_open) else (room_on_delay) }}"
-  zone_off_remain: "{{ max((zone_off_delay * 60) - zone_diff, 0) if (zone_open) else (zone_off_delay * 60) }}"
-  zone_on_remain: "{{ max(room_on_delay - zone_diff, 0) if not (zone_open) else (room_on_delay) }}"
+  room_last_seconds: "{{ ((now() - states[room_sensor].last_changed).total_seconds() | int) if (room_sensor) else 999 }}"
+  zone_last_seconds: "{{ ((now() - states[zone_sensor].last_changed).total_seconds() | int) if (zone_sensor) else 999 }}"
+  room_off_timer: "{{ max(room_off_delay - room_last_seconds, 0) if (room_open) else (room_off_delay) }}"
+  room_on_timer: "{{ max(room_on_delay - room_last_seconds, 0) if not (room_open) else (room_on_delay) }}"
+  zone_off_timer: "{{ max((zone_off_delay * 60) - zone_last_seconds, 0) if (zone_open) else (zone_off_delay * 60) }}"
+  zone_on_timer: "{{ max(room_on_delay - zone_last_seconds, 0) if not (zone_open) else (room_on_delay) }}"
 action:
   - if:
       - condition: and
@@ -108,7 +108,7 @@ action:
           - "{{ (room_open) }}"
     then:
       - delay:
-          seconds: "{{ min(room_off_remain, zone_off_remain) }}"
+          seconds: "{{ min(room_off_timer, zone_off_timer) }}"
       - service: climate.set_hvac_mode
         data:
           hvac_mode: 'off'
@@ -122,10 +122,10 @@ action:
               - "{{ (heating_state) }}"
               - "{{ not (room_open) }}"
               - "{{ (zone_open) }}"
-              - "{{ (zone_off_remain < 60) }}" # prevent from being interrupted by the 1 minute trigger
+              - "{{ (zone_off_timer < 60) }}" # prevent from being interrupted by the 1 minute trigger
         then:
           - delay:
-              seconds: "{{ zone_off_remain }}"
+              seconds: "{{ zone_off_timer }}"
           - service: climate.set_hvac_mode
             data:
               hvac_mode: 'off'
@@ -140,7 +140,7 @@ action:
                   - "{{ not (zone_open) }}"
             then:
               - delay:
-                  seconds: "{{ zone_on_remain }}"
+                  seconds: "{{ zone_on_timer }}"
               - service: switch.turn_off
                 data: {}
                 target:
@@ -166,10 +166,10 @@ action:
                       - "{{ not (heating_state) }}"
                       - "{{ not (room_open) }}"
                       - "{{ (zone_open) }}"
-                      - "{{ (zone_off_remain > room_on_delay) }}" # prevent from being interrupted by zone_off_remain
+                      - "{{ (zone_off_timer > room_on_delay) }}" # prevent from being interrupted by zone_off_timer
                 then:
                   - delay:
-                      seconds: "{{ min(room_on_remain, zone_on_remain) }}"
+                      seconds: "{{ min(room_on_timer, zone_on_timer) }}"
                   - service: switch.turn_off
                     data: {}
                     target:
