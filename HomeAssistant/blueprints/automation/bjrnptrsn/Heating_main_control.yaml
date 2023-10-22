@@ -1,0 +1,127 @@
+blueprint:
+  name: Heating Main Control
+  domain: automation
+  input:
+    reset_button:
+      name: Reset input_button entity
+      description: The reset button entity that triggers the automation.
+      selector:
+        entity:
+          domain: input_button
+    climate_device:
+      name: Climate device entity
+      description: The entity to turn on/off when reset button state is 'off'.
+      selector:
+        target:
+          entity:
+            domain: climate
+    scheduler_entity:
+      name: Scheduler entity
+      description: The entity to turn on/off when reset button state is 'off' or 'reset'.
+      selector:
+        target:
+          entity:
+            domain: switch
+    window_heating_automation:
+      name: Window Automation Entity
+      description: The entity to trigger when reset button state is 'reset'.
+      selector:
+        target:
+          entity:
+            domain: automation
+trigger:
+  - platform: event
+    event_type: heating_control
+    event_data:
+      power: "off"
+    id: power_off
+  - platform: event
+    event_type: heating_control
+    event_data:
+      power: "on"
+    id: power_on
+  - platform: state
+    entity_id:
+      - input_button.heating_reset
+    id: reset
+variables:
+  climate: !input climate_device
+  schedule: !input scheduler_entity
+  automation: !input window_heating_automation
+action:
+  - if:
+      - condition: trigger
+        id: power_off
+    then:
+      - service: climate.set_hvac_mode
+        data:
+          hvac_mode: "off"
+        target:
+          entity_id: "{{ climate.entity_id }}"
+      - delay:
+          seconds: 15
+      - service: homeassistant.disable_entity
+        data:
+          entity_id: "{{ climate.entity_id }}"
+      - delay:
+          seconds: 2
+      - service: homeassistant.disable_device
+        data:
+          device_id: 0c3d72f5e7cd6f665b062c4e43ecd73f
+      - delay:
+          seconds: 2
+      - service: automation.turn_off
+        target:
+          entity_id: "{{ automation.entity_id }}"
+        data:
+          stop_actions: true
+  - if:
+      - condition: trigger
+        id: power_on
+    then:
+      - service: homeassistant.enable_entity
+        data:
+          entity_id: "{{ climate.entity_id }}"
+      - delay:
+          seconds: 5
+      - service: homeassistant.enable_device
+        data:
+          device_id: 0c3d72f5e7cd6f665b062c4e43ecd73f
+      - delay:
+          seconds: 35
+  - if:
+      - condition: or
+        conditions:
+          - condition: trigger
+            id: reset
+          - condition: trigger
+            id: power_on
+    then:
+      - service: climate.set_hvac_mode
+        data:
+          hvac_mode: "off"
+        target:
+          entity_id: "{{ climate.entity_id }}"
+      - service: switch.turn_off
+        data: {}
+        target:
+          entity_id: "{{ schedule.entity_id }}"
+      - delay:
+          seconds: 10
+      - service: switch.turn_on
+        data: {}
+        target:
+          entity_id: "{{ schedule.entity_id }}"
+      - delay:
+          seconds: 10
+      - service: automation.turn_on
+        data: {}
+        target:
+          entity_id: "{{ automation.entity_id }}"
+      - delay:
+          seconds: 2
+      - service: automation.trigger
+        data:
+          skip_condition: true
+        target:
+          entity_id: "{{ automation.entity_id }}"

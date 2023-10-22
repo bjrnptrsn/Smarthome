@@ -1,0 +1,195 @@
+blueprint:
+  name: Dynamic Scene
+  domain: automation
+  input:
+    light_target:
+      name: Light target
+      description: The light targets to be controlled.
+      selector:
+        target:
+          entity:
+            domain: light
+    day:
+      name: Day mode start
+      description: Set the start time for the day mode. Ends with the evening mode.
+      default: '07:00:00'
+      selector:
+        time:
+    day_brightness:
+      name: Day mode brightness
+      description: Set the brightness level used during the day mode.
+      default: 100.0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          unit_of_measurement: '%'
+          step: 1.0
+          mode: slider
+    evening:
+      name: Evening mode start
+      description: Set the start time for the day mode. Ends at sunset.
+      default: '19:00:00'
+      selector:
+        time:
+    evening_brightness:
+      name: Evening mode brightness
+      description: Set the brightness level used during the evening mode.
+      default: 80.0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          unit_of_measurement: '%'
+          step: 1.0
+          mode: slider
+    sunset_brightness:
+      name: Sunset mode brightness
+      description: Set the brightness level used from sunset to relax mode.
+      default: 60.0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          unit_of_measurement: '%'
+          step: 1.0
+          mode: slider
+    relax:
+      name: Relax mode start (dynamic)
+      description: Set the start time for the day mode. Ends with the relax mode.
+      default: '22:00:00'
+      selector:
+        time:
+    relax_brightness:
+      name: Relax mode brightness
+      description: Set the brightness level used during the sunset mode.
+      default: 40.0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          unit_of_measurement: '%'
+          step: 1.0
+          mode: slider
+    sleep:
+      name: Sleep mode start (dynamic)
+      description: Set the start time for day mode. If the sunset is after this time, it starts 30 minutes later. Ends with the night mode.
+      default: '23:00:00'
+      selector:
+        time:
+    sleep_brightness:
+      name: Sleep mode brightness
+      description: Set the brightness level used during the sleep mode.
+      default: 20.0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          unit_of_measurement: '%'
+          step: 1.0
+          mode: slider
+    night:
+      name: Night mode start (dynamic)
+      description: Set the start time for the sleep mode. Ends with the day mode.
+      default: '00:00:00'
+      selector:
+        time:
+    night_brightness:
+      name: Night mode brightness
+      description: Set the brightness level used during the night mode.
+      default: 10.0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          unit_of_measurement: '%'
+          step: 1.0
+          mode: slider
+mode: restart
+max_exceeded: silent
+variables:
+  lights: !input light_target
+  day_time: !input day
+  day_calc: >
+    {{ 7/0 if strptime('07:00:00', '%H:%M:%S').time().replace(second=0) == day_tiime }}
+  evening_time: !input evening
+  relax: !input relax
+  sunset_time: >
+    {{ as_local(as_datetime(states('sensor.sun_next_setting')) + timedelta(minutes=3)).time().replace(second=0) }}
+  later_sunset: >
+    {% set sunset_dt = as_local(as_datetime(states('sensor.sun_next_setting')) + timedelta(minutes=3)) %}
+    {{ as_local(now().combine(sunset_dt.date(), strptime(relax, '%H:%M:%S').time())) - sunset_dt <= timedelta(minutes=30) }}
+  relax_time: >
+    {{ strptime(relax, '%H:%M:%S').time().replace(second=0) if not later_sunset else (now().combine(now().date(), strptime(sunset_time, '%H:%M:%S').time()) + timedelta(minutes=30)).time().replace(second=0) }}
+  sleep: !input sleep
+  sleep_time: >
+    {{ strptime(sleep, '%H:%M:%S').time().replace(second=0) if not later_sunset else (now().combine(now().date(), strptime(sunset_time, '%H:%M:%S').time()) + timedelta(minutes=60)).time().replace(second=0) }}
+  day_brightness: !input day_brightness
+  night_time: !input night
+  time_list: 
+    - "{{ night_time }}"
+    - "{{ day_time }}"
+    - "{{ evening_time }}"
+    - "{{ sunset_time }}"
+    - "{{ relax_time }}"
+    - "{{ sleep_time }}"
+  brightness_list: 
+    - !input night_brightness
+    - !input day_brightness
+    - !input evening_brightness
+    - !input sunset_brightness
+    - !input relax_brightness
+    - !input sleep_brightness
+  lights_on_check: >
+    {% set count = namespace(on=0) %}
+    {% for area in ([lights.area_id] if lights.area_id is string else lights.area_id) %}
+      {% set count.on = count.on + expand(area_entities(area)) | selectattr('entity_id', 'match', '^light\..*') | selectattr('state', 'eq', 'on') | list | count %}
+    {% endfor %}
+    {% for device in ([lights.device_id] if lights.device_id is string else lights.device_id) %}
+      {% set count.on = count.on + expand(device_entities(device)) | selectattr('state', 'eq', 'on') | list | count %}
+    {% endfor %}
+    {% for entity in ([lights.entity_id] if lights.entity_id is string else lights.entity_id) %}
+      {% set count.on = count.on + expand(entity) | selectattr('state', 'eq', 'on') | list | count %}
+    {% endfor %}
+    {{ count.on > 0 }}
+  active_slot: >
+    {% set mode = namespace(slot=0) %}
+    {% for item in time_list %}
+      {% if now().time().replace(microsecond=0) >= strptime(time_list[loop.index-1], '%H:%M:%S').time() %}
+        {% set mode.slot = loop.index %}
+      {% endif %}
+    {% endfor %}
+    {{ mode.slot }}
+  new_slot: >
+    {% set diff = (now().replace(microsecond=0, tzinfo=none) - now().combine(now().date(), strptime(time_list[active_slot-1], '%H:%M:%S').time())).total_seconds()|int %}
+    {{ (diff >= 0) and (diff <= 60) }}
+trigger:
+  - platform: time_pattern
+    minutes: /1
+    id: 'timer'
+action:
+  - if:
+      - "{{ (trigger.id == 'timer') and (lights_on_check == true) and (new_slot == true) }}" 
+    then:
+      - service: light.turn_on
+        data:
+          transition: 10.0
+          brightness_pct: "{{ brightness_list[active_slot-1] }}"
+        target: !input light_target
+  - if:
+      - "{{ message == 'enable' }}" 
+    then:
+      - service: light.turn_on
+        data:
+          brightness_pct: "{{ brightness_list[active_slot-1] }}"
+        target: !input light_target
+      - service: automation.turn_on
+        target:
+          entity_id: automation.dynamisches_licht_kuchentisch
+  - if:
+      - "{{ (trigger.id == 'timer') and (lights_on_check == false) }}"
+    then:
+      - service: automation.turn_off
+        target:
+          entity_id: automation.dynamisches_licht_kuchentisch
+  
