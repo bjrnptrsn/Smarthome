@@ -1,0 +1,181 @@
+blueprint:
+  name: Window State Heating Control
+  domain: automation
+  input:
+    room_sensor:
+      name: Room window sensor
+      description: Select the sensor entity that detects the state of the room windows
+      default: []
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class: window
+    zone_sensor:
+      name: Zone window sensor
+      description: Select the sensor entity that detects the state of the zone windows
+      default: []
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class: window
+    heating_device:
+      name: Heating device
+      description: Select the entity that controls the heating system
+      selector:
+        target:
+          entity:
+            domain: climate
+    schedules:
+      name: Scheduler entity
+      description: Select the scheduler entities to be reset when the heating is switched on
+      default: []
+      selector:
+        target:
+          entity:
+            domain: switch
+    room_off_delay:
+      name: Room window open delay
+      description: Set the time delay to turn off the heating after opening a room window
+      default: 10
+      selector:
+        number:
+          min: 0.0
+          max: 30.0
+          unit_of_measurement: seconds
+          step: 1.0
+          mode: slider
+    room_on_delay:
+      name: Window close delay
+      description: Set the time delay to turn on the heating after closing the room or zone windows
+      default: 30
+      selector:
+        number:
+          min: 0.0
+          max: 60.0
+          unit_of_measurement: seconds
+          step: 1.0
+          mode: slider
+    zone_off_delay:
+      name: Zone window open delay
+      description: Set the time delay to turn off the heating after opening any zone window
+      default: 5
+      selector:
+        number:
+          min: 1.0
+          max: 15.0
+          unit_of_measurement: minutes
+          step: 1.0
+          mode: slider
+variables:
+  room_sensor: !input room_sensor
+  room_open: "{{ (states(room_sensor) == 'on') if (room_sensor) else false }}"
+  zone_sensor: !input zone_sensor
+  zone_open: "{{ (states(zone_sensor) == 'on') if (zone_sensor) else false }}"
+  heating_device: !input heating_device
+  heating_state: "{{ iif(states(heating_device.entity_id) != 'off') }}"
+  schedules: !input schedules
+  room_off_delay: !input room_off_delay
+  room_on_delay: !input room_on_delay
+  zone_off_delay: !input zone_off_delay
+  room_last_seconds: "{{ ((now() - states[room_sensor].last_changed).total_seconds() | int) if (room_sensor) else 999 }}"
+  zone_last_seconds: "{{ ((now() - states[zone_sensor].last_changed).total_seconds() | int) if (zone_sensor) else 999 }}"
+  room_off_timer: "{{ max(room_off_delay - room_last_seconds, 0) if (room_open) else (room_off_delay) }}"
+  room_on_timer: "{{ max(room_on_delay - room_last_seconds, 0) if not (room_open) else (room_on_delay) }}"
+  zone_off_timer: "{{ max((zone_off_delay * 60) - zone_last_seconds, 0) if (zone_open) else (zone_off_delay * 60) }}"
+  zone_on_timer: "{{ max(room_on_delay - zone_last_seconds, 0) if not (zone_open) else (room_on_delay) }}"
+trigger:
+  - platform: state
+    entity_id: !input room_sensor
+    from: "off"
+    to: "on"
+    id: open
+  - platform: state
+    entity_id: !input room_sensor
+    from: "on"
+    to: "off"
+    id: close
+  - platform: time_pattern
+    minutes: "/1"
+    id: timer
+mode: restart
+max_exceeded: silent
+action:
+  - if:
+      - "{{ (trigger.id in ['timer', 'open']) }}"
+      - "{{ (heating_state) }}"
+      - "{{ (room_open) }}"
+    then:
+      - delay:
+          seconds: "{{ min(room_off_timer, zone_off_timer) }}"
+      - service: climate.set_hvac_mode
+        data:
+          hvac_mode: "off"
+        target:
+          entity_id: "{{ heating_device.entity_id }}"
+    else:
+      - if:
+          - "{{ (trigger.id == 'timer') }}"
+          - "{{ (heating_state) }}"
+          - "{{ not (room_open) }}"
+          - "{{ (zone_open) }}"
+          - "{{ (zone_off_timer < 60) }}" # prevent from being interrupted by the 1 minute trigger
+        then:
+          - delay:
+              seconds: "{{ zone_off_timer }}"
+          - service: climate.set_hvac_mode
+            data:
+              hvac_mode: "off"
+            target:
+              entity_id: "{{ heating_device.entity_id }}"
+        else:
+          - if:
+              - "{{ (trigger.id in ['timer', 'close']) }}"
+              - "{{ not (heating_state) }}"
+              - "{{ not (zone_open) }}"
+            then:
+              - delay:
+                  seconds: "{{ zone_on_timer }}"
+              - service: switch.turn_off
+                data: {}
+                target:
+                  entity_id: "{{ schedules.entity_id }}"
+              - delay:
+                  milliseconds: 100
+              - service: switch.turn_on
+                data: {}
+                target:
+                  entity_id: "{{ schedules.entity_id }}"
+              - delay:
+                  milliseconds: 500
+              - service: climate.set_hvac_mode
+                data:
+                  hvac_mode: "heat"
+                target:
+                  entity_id: "{{ heating_device.entity_id }}"
+            else:
+              - if:
+                  - "{{ (trigger.id in ['timer', 'close']) }}"
+                  - "{{ not (heating_state) }}"
+                  - "{{ not (room_open) }}"
+                  - "{{ (zone_open) }}"
+                  - "{{ (zone_off_timer > room_on_delay) }}" # prevent from being interrupted by zone_off_timer
+                then:
+                  - delay:
+                      seconds: "{{ min(room_on_timer, zone_on_timer) }}"
+                  - service: switch.turn_off
+                    data: {}
+                    target:
+                      entity_id: "{{ schedules.entity_id }}"
+                  - delay:
+                      milliseconds: 100
+                  - service: switch.turn_on
+                    data: {}
+                    target:
+                      entity_id: "{{ schedules.entity_id }}"
+                  - delay:
+                      milliseconds: 500
+                  - service: climate.set_hvac_mode
+                    data:
+                      hvac_mode: "heat"
+                    target:
+                      entity_id: "{{ heating_device.entity_id }}"

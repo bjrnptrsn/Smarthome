@@ -169,7 +169,7 @@ trigger:
     id: 'timer'
 action:
   - if:
-      - "{{ (trigger.id == 'timer') and (lights_on_check == true) and (new_slot == true) }}" 
+      - "{{ (trigger.id == 'timer') and (lights_on_check) and (new_slot) }}" 
     then:
       - service: light.turn_on
         data:
@@ -187,7 +187,7 @@ action:
         target:
           entity_id: automation.dynamisches_licht_kuchentisch
   - if:
-      - "{{ (trigger.id == 'timer') and (lights_on_check == false) }}"
+      - "{{ (trigger.id == 'timer') and not (lights_on_check) }}"
     then:
       - service: automation.turn_off
         target:
