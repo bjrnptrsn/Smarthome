@@ -1,6 +1,29 @@
 blueprint:
-  name: .Window State Heating Control
+  name: Window State Heating Control
   domain: automation
+  description: "
+    \n## Window State Heating Control
+    \n### Description:
+    \n- Introducing the Window State Heating Control – your comprehensive solution to intelligently manage heating in your home, responding to the ever-changing status of your windows. This ingenious system seamlessly orchestrates the interaction between your heating device and window sensors, ensuring optimal comfort and energy efficiency. Here's how it works:
+    \n
+    \n### Core Functionality:
+    \n
+    \n- **Dynamic Heating Control:** Window State Heating Control monitors the real-time status of your room and zone windows through dedicated sensors. When windows open or close, the system takes immediate action to either switch your heating off or on.
+    \n
+    \n- **Room and Zone Sensing:** You have the flexibility to choose between room-level and zone-level window sensors. Room sensors focus on specific spaces, while zone sensors cover entire areas like your apartment. Zone detection takes precedence; if zone windows are open, heating remains off until they are closed.
+    \n- **Minute-by-Minute Surveillance:** The system constantly evaluates both your heating device and window sensors, conducting minute-by-minute checks. This guarantees a reliable and responsive operation, preventing any undesirable surprises.
+    \n- **Precise Timing:** After a change in window status, Window State Heating Control calculates precise waiting times in seconds. These times account for both window open and close events, ensuring heating decisions are well-timed and efficient.
+    \n
+    \n### Optional Features:
+    \n
+    \n- **Reset Schedules:** For added convenience, you can integrate your scheduling entities. When the heating is turned on, you have the option to reset your schedule to its default state. This ensures that your preferred temperature settings are reactivated automatically.
+    \n
+    \n### In Simple Terms:
+    \n
+    \nImagine having a heating system that adapts to your environment with unmatched precision. Window State Heating Control offers you the luxury of warm, cozy spaces, but only when you need it. It keeps an eagle eye on your windows and works diligently to balance comfort and energy savings. Plus, if you have schedules set up, it synchronizes them effortlessly with your heating preferences.
+    \n
+    \nWhether you want to ensure your heating doesn't run when the windows are open, or you wish to enjoy a toasty room as soon as you close the windows, this control system is the key to a more comfortable and efficient home. It's the future of heating, where technology and convenience come together to make your life easier and your energy usage smarter.
+    "
   input:
     room_sensor:
       name: Room window sensor
@@ -35,8 +58,8 @@ blueprint:
             domain: switch
     room_off_delay:
       name: Room window open delay
-      description: Set the time delay to turn off the heating after opening a room window
-      default: 10
+      description: Set the delay to turn off the heating after opening a room window
+      default: 15
       selector:
         number:
           min: 0.0
@@ -44,26 +67,26 @@ blueprint:
           unit_of_measurement: seconds
           step: 1.0
           mode: slider
-    room_on_delay:
-      name: Window close delay
-      description: Set the time delay to turn on the heating after closing the room or zone windows
-      default: 30
-      selector:
-        number:
-          min: 0.0
-          max: 60.0
-          unit_of_measurement: seconds
-          step: 1.0
-          mode: slider
     zone_off_delay:
       name: Zone window open delay
-      description: Set the time delay to turn off the heating after opening any zone window
+      description: Set the delay to turn off the heating after a zone window is open.
       default: 5
       selector:
         number:
           min: 1.0
           max: 15.0
           unit_of_measurement: minutes
+          step: 1.0
+          mode: slider
+    room_on_delay:
+      name: Window close delay
+      description: Set the delay to turn on the heating after closing the room or zone windows
+      default: 30
+      selector:
+        number:
+          min: 0.0
+          max: 60.0
+          unit_of_measurement: seconds
           step: 1.0
           mode: slider
 variables:
@@ -90,15 +113,13 @@ trigger:
     entity_id: !input zone_sensor
   - platform: time_pattern
     minutes: "/1"
-condition:
-  - condition: or
-    conditions:
-      - "{{ (heating_state) and ((room_state == 'open') or (zone_state == 'open')) }}"
-      - "{{ not (heating_state) and (zone_state == 'close') }}"
-      - "{{ not (heating_state) and (room_state == 'close') and (zone_state == 'open') and (zone_off_timer != 0) }}"
 mode: restart
 max_exceeded: silent
 action:
+  - or:
+      - "{{ (heating_state) and ((room_state == 'open') or (zone_state == 'open')) }}"
+      - "{{ not (heating_state) and (zone_state == 'close') }}"
+      - "{{ not (heating_state) and (room_state == 'close') and (zone_state == 'open') and (zone_off_timer != 0) }}"
   - if:
       - "{{ (heating_state) }}"
     then:
