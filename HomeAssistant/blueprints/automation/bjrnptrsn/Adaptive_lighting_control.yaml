@@ -4,7 +4,7 @@ blueprint:
   input:
     light_target:
       name: Light target
-      description: The light targets to be controlled.
+      description: Select the light targets to be controlled.
       default: {}
       selector:
         target:
@@ -12,15 +12,15 @@ blueprint:
             domain: light
     scene_target:
       name: Scene (optional)
-      description: An optional scene that is activated instead of just turning on the light.
+      description: Select a scene that will be used to turn on the light.
       default: {}
       selector:
         target:
           entity:
             domain: scene
     automation_target:
-      name: Automation (optional)
-      description: "An optional automation, e.g. dynamic scene automation. Activated on motion, deactivated on no motion."
+      name: Hue Smart Scene Automation (optional)
+      description: Select a Smart Scene automation to be activated.
       default: {}
       selector:
         target:
@@ -28,14 +28,14 @@ blueprint:
             domain: automation
     motion_entity:
       name: Motion sensor
-      description: The motion sensor that triggers the automation.
+      description: Select the motion sensor to trigger.
       default:
       selector:
         entity:
           domain: binary_sensor
-    no_motion_wait:
+    motion_off_delay:
       name: No motion delay
-      description: Time delay to wait before turning off the light after no motion is detected.
+      description: Set the duration after no motion detection the light is turned off.
       default: 120
       selector:
         number:
@@ -46,14 +46,14 @@ blueprint:
           mode: slider
     illuminance_sensor:
       name: Illuminance sensor (optional)
-      description: An illuminance sensor to check the light level in the area.
+      description: Select an illuminance sensor to measure the amount of light in the room.
       default: []
       selector:
         entity:
           domain: sensor
     illuminance_cutoff:
       name: Illuminance cutoff value
-      description: Threshold value (in lux). Above this value, the light is not turned on. The value 0 switches the function off.
+      description: Set the threshold (in lux) up to which the light is turned on.
       default: 0.0
       selector:
         number:
@@ -62,31 +62,33 @@ blueprint:
           unit_of_measurement: lx
           step: 1.0
           mode: slider
-    lightswitch:
-      name: Light switch (optional)
-      description: Light  switch sensor entity 
-      default: []
+    use_elevation:
+      name: Sun elevation check
+      description: Enable checking the sun's elevation angle.
+      default: false
       selector:
-        entity:
-          domain: sensor
-    blocker:
-      name: Manual mode automation blocker (optional)
-      description: Entity that blocks this automation if active.
-      default: []
+        boolean: {}
+    elevation_angle:
+      name: Sun elevation angle
+      description: Elevation threshold (in degrees). Light turns on only if sun elevation angle is below this value.
+      default: 0
       selector:
-        entity:
-          domain: input_boolean
-    timer_blocker:
-      name: Manual mode timer entity (optional)
-      description: When the timer is finished, the automation blocker is deactivated. Ends manual mode.
-      default: []
+        number:
+          min: -90.0
+          max: 90.0
+          unit_of_measurement: degrees
+          step: 1.0
+          mode: slider
+    use_energymode:
+      name: Enable energy saving mode
+      description: If no motion is detected for the set delay, the light turned off.
+      default: true
       selector:
-        entity:
-          domain: timer
-    timer_duration:
-      name: Manual mode timer duration
-      description: Set the duration for the timer. 
-      default: 5.0
+        boolean: {}
+    energy_save_delay:
+      name: Energy saving mode delay
+      description: Set the delay time for the energy saving mode.
+      default: 30
       selector:
         number:
           min: 5.0
@@ -94,10 +96,31 @@ blueprint:
           unit_of_measurement: minutes
           step: 1.0
           mode: slider
-    energy_save_delay:
-      name: Energy-saving mode delay time
-      description: Set the delay time for the energy-saving mode.
-      default: 30
+    lightswitch:
+      name: Light switch (optional)
+      description: Select a light switch sensor entity to control manual mode.
+      default: []
+      selector:
+        entity:
+          domain: sensor
+    blocker:
+      name: Manual mode automation blocker (optional)
+      description: Select an input_boolean entity. If active, the automation is blocked.
+      default: []
+      selector:
+        entity:
+          domain: input_boolean
+    timer_blocker:
+      name: Manual mode timer entity (optional)
+      description: Select a timer entity. After completion, the automation is active again.
+      default: []
+      selector:
+        entity:
+          domain: timer
+    timer_duration:
+      name: Manual mode timer duration
+      description: Set the timer duration.
+      default: 5.0
       selector:
         number:
           min: 5.0
@@ -139,66 +162,59 @@ blueprint:
           unit_of_measurement: minutes
           step: 1.0
           mode: slider
-    use_elevation:
-      name: Sun elevation check
-      description: Enable checking the sun's elevation angle.
-      default: false
-      selector:
-        boolean: {}
-    elevation_angle:
-      name: Sun elevation angle
-      description: Elevation threshold (in degrees). Light turns on only if sun elevation angle is below this value.
-      default: 0
-      selector:
-        number:
-          min: -90.0
-          max: 90.0
-          unit_of_measurement: degrees
-          step: 1.0
-          mode: slider
+mode: restart
+max_exceeded: silent
 variables:
   lights: !input light_target
   lights_on_check: >
     {% set count = namespace(on=0) %}
-    {% for area in ([lights.area_id] if lights.area_id is string else lights.area_id) %}
-      {% set count.on = count.on + expand(area_entities(area)) | selectattr('entity_id', 'match', '^light\..*') | selectattr('state', 'eq', 'on') | list | count %}
-    {% endfor %}
-    {% for device in ([lights.device_id] if lights.device_id is string else lights.device_id) %}
-      {% set count.on = count.on + expand(device_entities(device)) | selectattr('state', 'eq', 'on') | list | count %}
-    {% endfor %}
-    {% for entity in ([lights.entity_id] if lights.entity_id is string else lights.entity_id) %}
-      {% set count.on = count.on + expand(entity) | selectattr('state', 'eq', 'on') | list | count %}
-    {% endfor %}
+    {% if 'area_id' in lights %} 
+      {% for area in ([lights.area_id] if lights.area_id is string else lights.area_id) %}
+        {% set count.on = count.on + expand(area_entities(area)) | selectattr('entity_id', 'match', '^light\..*') | selectattr('state', 'eq', 'on') | list | count %}
+      {% endfor %}
+    {% endif %}
+    {% if 'device_id' in lights %} 
+      {% for device in ([lights.device_id] if lights.device_id is string else lights.device_id) %}
+        {% set count.on = count.on + expand(device_entities(device)) | selectattr('state', 'eq', 'on') | list | count %}
+      {% endfor %}
+    {% endif %}
+    {% if 'entity_id' in lights %} 
+      {% for entity in ([lights.entity_id] if lights.entity_id is string else lights.entity_id) %}
+        {% set count.on = count.on + expand(entity) | selectattr('state', 'eq', 'on') | list | count %}
+      {% endfor %}
+    {% endif %}
     {{ count.on > 0 }}
   scene_target: !input scene_target
-  scene_entities: "{{ ([scene_target.entity_id] if ((scene_target.entity_id) is string) else (scene_target.entity_id)) }}"
+  scene_entities: >
+    {% if 'entity_id' in scene_target %} 
+      {{ ([scene_target.entity_id] if (scene_target.entity_id is string) else (scene_target.entity_id)) }}
+    {% endif %}
   automation_target: !input automation_target
   motion_entity: !input motion_entity
-  motion_state: "{{ iif(states(motion_entity) == 'on') if (motion_entity) else false }}"
-  no_motion_wait: !input no_motion_wait
+  motion_state: "{{ iif(states(motion_entity) == 'on') if (motion_entity) else False }}"
+  motion_off_delay: !input motion_off_delay
   motion_last_seconds: "{{ ((now() - states[motion_entity].last_changed).total_seconds() | int) if (motion_entity) else 999 }}"
-  motion_off_delay: !input no_motion_wait
-  motion_off_timer: "{{ max(motion_off_delay - motion_last_seconds, 0) if not (motion_state) else (motion_off_delay) }}"
-  energy_save_delay: !input energy_save_delay
-  energy_save_check: "{{ (motion_last_seconds > (energy_save_delay * 60)) and (lights_on_check) and not (motion_state) }}"
-  blocker: !input blocker
-  blocker_state: "{{ iif(states(blocker) == 'on') if (blocker) else false }}" 
-  timer_blocker: !input timer_blocker
-  timer_duration: !input timer_duration
   illuminance_sensor: !input illuminance_sensor
   illuminance_cutoff: !input illuminance_cutoff
-  illuminance_check: "{{ not (illuminance_cutoff) or (states(illuminance_sensor) | int <= illuminance_cutoff | int) if (illuminance_sensor) else true }}"
-  reverse_nightmode_logic: !input reverse_nightmode_logic
+  illuminance_check: "{{ not (illuminance_cutoff) or (states(illuminance_sensor) | int <= illuminance_cutoff | int) if (illuminance_sensor) else True }}"
+  use_elevation: !input use_elevation
+  elevation_angle: !input elevation_angle
+  elevation_check: "{{ not (use_elevation) or (state_attr('sun.sun', 'elevation') <= elevation_angle | float(90)) }}"
+  use_energymode: !input use_energymode
+  energy_save_delay: !input energy_save_delay
+  energy_save_check: "{{ (use_energymode) and (motion_last_seconds > (energy_save_delay * 60)) and (lights_on_check) and not (motion_state) }}"
+  blocker: !input blocker
+  blocker_state: "{{ iif(states(blocker) == 'on') if (blocker) else False }}" 
+  timer_blocker: !input timer_blocker
+  timer_duration: !input timer_duration
   use_nightmode: !input use_nightmode
+  reverse_nightmode_logic: !input reverse_nightmode_logic
   offset_midnight: !input offset_midnight
   offset_sunrise: !input offset_sunrise
   nightmode_check: >
     {% set sunrise = as_local(as_datetime(states('sensor.sun_next_rising'))) + timedelta(minutes=offset_sunrise) %}
     {% set night = as_local(now().combine( sunrise.date(), (strptime('0', '%H').time())) + timedelta(minutes=offset_midnight)) %}
     {{ not (use_nightmode) or ((night <= now() < sunrise) == reverse_nightmode_logic) }}
-  use_elevation: !input use_elevation
-  elevation_angle: !input elevation_angle
-  elevation_check: "{{ not (use_elevation) or (state_attr('sun.sun', 'elevation') <= elevation_angle | float(90)) }}"
 trigger:
   - platform: state
     entity_id: !input motion_entity
@@ -209,7 +225,7 @@ trigger:
     entity_id: !input motion_entity
     from: "on"
     to: "off"
-    for: !input no_motion_wait
+    for: !input motion_off_delay
     id: 'motion_off'
   - platform: state
     entity_id: !input lightswitch
@@ -221,22 +237,19 @@ trigger:
     id: 'longpress'
   - platform: time_pattern
     minutes: "/1"
-    id: 'energy'
+    id: 'energy_timer'
   - platform: event
     event_type: timer.finished
     event_data:
       entity_id: !input timer_blocker
-    id: 'timer'
+    id: 'manual_timer'
 condition:
-  - condition: or
-    conditions:
+  - or:
       - "{{ (trigger.id in ['motion_on', 'motion_off']) and not (blocker_state) }}"
       - "{{ (trigger.id == 'singleclick') and (nightmode_check) }}"
       - "{{ (trigger.id == 'longpress') }}"
-      - "{{ (trigger.id == 'timer') and (blocker_state) }}"
-      - "{{ (trigger.id == 'energy') and (energy_save_check) and not (blocker_state) }}"
-mode: restart
-max_exceeded: silent
+      - "{{ (trigger.id == 'manual_timer') and (blocker_state) }}"
+      - "{{ (trigger.id == 'energy_timer') and (energy_save_check) and not (blocker_state) }}"
 action:
   - if:
       - "{{ (trigger.id == 'singleclick') and (blocker != []) }}"
@@ -250,7 +263,7 @@ action:
             value_template: >
               {% set finish = state_attr(timer_blocker, 'finishes_at') %}
               {% if (finish == none) or not (blocker_state) %}
-                {{ true }}
+                {{ True }}
               {% else %}
                 {{ (as_datetime(finish) - now()) < timedelta(seconds=int(timer_duration * 60 / 2)) }}
               {% endif %}
@@ -261,13 +274,11 @@ action:
             target:
               entity_id: "{{ timer_blocker }}"
   - if:
-      - condition: or
-        conditions:
+      - or:
           - "{{ trigger.id == 'singleclick' }}"
-          - condition: and
-            conditions:
+          - and:
               - "{{ (trigger.id == 'motion_on') }}"
-              - "{{ (illuminance_sensor == []) or (illuminance_cutoff == 0) or (states(illuminance_sensor) | int <= illuminance_cutoff | int) }}"
+              - "{{ (illuminance_check) }}"
               - "{{ (elevation_check) }}"
               - "{{ (nightmode_check) }}"
     then:
@@ -293,12 +304,12 @@ action:
                         target:
                           entity_id: "{{ scene_entities[repeat.index - 1] }}"
                       - delay:
-                          milliseconds: 350
+                          milliseconds: 300
         else:
           - service: light.turn_on
             target: !input light_target
   - if:
-      - "{{ (trigger.id in ['longpress', 'timer']) and (blocker != []) }}"
+      - "{{ (trigger.id in ['longpress', 'manual_timer']) and (blocker != []) }}"
     then:
       - service: input_boolean.turn_off
         target:
@@ -310,12 +321,7 @@ action:
             target:
               entity_id: "{{ timer_blocker }}"
   - if:
-      - "{{ (trigger.id in ['motion_off', 'longpress', 'energy', 'timer']) }}"
+      - "{{ (trigger.id in ['motion_off', 'longpress', 'energy_timer', 'manual_timer']) }}"
     then:
-      - if:
-          - "{{ automation_target != {} }}"
-        then:
-          - service: automation.turn_off
-            target: !input automation_target
       - service: light.turn_off
         target: !input light_target
