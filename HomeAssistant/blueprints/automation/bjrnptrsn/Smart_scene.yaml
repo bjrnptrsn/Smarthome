@@ -1,0 +1,186 @@
+blueprint:
+  name: Smart scene
+  domain: automation
+  input:
+    light_target:
+      name: Light target
+      description: The light targets to be controlled.
+      default: []
+      selector:
+        target:
+          entity:
+            domain: light
+    hue_smart_scene:
+      name: Hue Smart Scene
+      description: Select a scene that will be used to turn on the light.
+      default: []
+      selector:
+        entity:
+          domain: scene
+    blocker:
+      name: Blocker (optional)
+      description: Select an input_boolean entity. If active, the automation is blocked.
+      default: []
+      selector:
+        entity:
+          domain: input_boolean
+    day_brightness:
+      name: Day brightness
+      description: Set the brightness level used during the day mode.
+      default: 100.0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          unit_of_measurement: '%'
+          step: 1.0
+          mode: slider
+    evening_brightness:
+      name: Evening brightness
+      description: Set the brightness level used during the evening mode.
+      default: 80.0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          unit_of_measurement: '%'
+          step: 1.0
+          mode: slider
+    sunset_brightness:
+      name: Sunset brightness
+      description: Set the brightness level used from sunset to relax mode.
+      default: 60.0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          unit_of_measurement: '%'
+          step: 1.0
+          mode: slider
+    relax_brightness:
+      name: Relax brightness
+      description: Set the brightness level used during the sunset mode.
+      default: 40.0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          unit_of_measurement: '%'
+          step: 1.0
+          mode: slider
+    sleep_brightness:
+      name: Sleep brightness
+      description: Set the brightness level used during the sleep mode.
+      default: 20.0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          unit_of_measurement: '%'
+          step: 1.0
+          mode: slider
+    night_brightness:
+      name: Night brightness
+      description: Set the brightness level used during the night mode.
+      default: 10.0
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          unit_of_measurement: '%'
+          step: 1.0
+          mode: slider
+mode: restart
+max_exceeded: silent
+variables:
+  lights: !input light_target
+  hue_smart_scene: !input hue_smart_scene
+  blocker: !input blocker
+  brightness_list: 
+    - !input day_brightness
+    - !input evening_brightness
+    - !input sunset_brightness
+    - !input relax_brightness
+    - !input sleep_brightness
+    - !input night_brightness
+  lights_on_check: >
+    {% set count = namespace(on=0) %}
+    {% if 'area_id' in lights %} 
+      {% for area in ([lights.area_id] if lights.area_id is string else lights.area_id) %}
+        {% set count.on = count.on + expand(area_entities(area)) | selectattr('entity_id', 'match', '^light\..*') | selectattr('state', 'eq', 'on') | list | count %}
+      {% endfor %}
+    {% endif %}
+    {% if 'device_id' in lights %} 
+      {% for device in ([lights.device_id] if lights.device_id is string else lights.device_id) %}
+        {% set count.on = count.on + expand(device_entities(device)) | selectattr('state', 'eq', 'on') | list | count %}
+      {% endfor %}
+    {% endif %}
+    {% if 'entity_id' in lights %} 
+      {% for entity in ([lights.entity_id] if lights.entity_id is string else lights.entity_id) %}
+        {% set count.on = count.on + expand(entity) | selectattr('state', 'eq', 'on') | list | count %}
+      {% endfor %}
+    {% endif %}
+    {{ count.on > 0 }}
+  sensor: "{{ 'sensor.' + (hue_smart_scene|string).replace('.', '_') }}"
+  slot_and_delay: >
+    {% if iif(state_attr(sensor, 'timeslot') != None) %}
+      {% set timeslots = ['day', 'evening', 'sunset', 'relax', 'sleep', 'night'] %}
+      {% set var = namespace(dt1=[], dt2=[], id=-1, sec=[]) %}
+      {% for slot in timeslots %}
+        {% set dt = as_local(now().combine(now().date(), strptime(state_attr(sensor, slot), '%H:%M:%S').time())) %}
+        {% set var.dt1 = var.dt1 + [dt] %}
+        {% set var.dt2 = var.dt2 + [(dt + timedelta(days=1)) if (dt < var.dt1[0]) else dt] %}
+      {% endfor %}
+      {% for dt in var.dt2 %}
+        {% set var.id = (var.id + 1) if (dt < now()) else (var.id) %}
+        {% set seconds = (dt - now()).total_seconds() | int %}
+        {% set var.sec = var.sec + [(86400 if (seconds < 0) else seconds)] %}
+      {% endfor %}
+      {{ [var.id, min(var.sec)] }}
+    {% else %}
+      {{ [0, 0] }}
+    {% endif %}
+  transition: "{{ ((state_attr(sensor, 'transition') / 1000) | int) if iif(state_attr(sensor, 'transition') != None) else 0 }}"
+  dim_to_next: "{{ 0 < slot_and_delay[1] <= transition }}"
+  bri_pct: "{{ brightness_list[(slot_and_delay[0]-5 if (dim_to_next) else slot_and_delay[0])] }}"
+  blocker_state: "{{ iif(states(blocker) == 'on') if (blocker) else false }}" 
+trigger:
+  - platform: homeassistant
+    event: start
+    id: start
+  - platform: time_pattern
+    minutes: /1
+    id: timer
+  - platform: time_pattern
+    hours: /1
+    id: update
+condition:
+  or:
+    - "{{ (message == 'enable') }}"
+    - "{{ (trigger.id == 'start') }}"
+    - "{{ (trigger.id == 'timer') and (lights_on_check) and not (blocker_state) and (dim_to_next) }}"
+    - "{{ (trigger.id == 'update') and not (lights_on_check) }}"
+action:
+  - if:
+      - "{{ not (trigger.id == 'update') }}"
+      - "{{ not (trigger.id == 'start') }}"
+    then:
+      - if:
+          - "{{ (message == 'enable') }}"
+        then:
+          - service: light.turn_on
+            data:
+              brightness_pct: "{{ bri_pct }}"
+            target: !input light_target
+        else:
+          - service: light.turn_on
+            data:
+              transition: "{{ slot_and_delay[1] }}"
+              brightness_pct: "{{ bri_pct }}"
+            target: !input light_target
+  - service: python_script.exec
+    data:
+      file: blueprints/automation/bjrnptrsn/hue_smart_scene.py
+      room: "{{ state_attr(hue_smart_scene, 'group_name') }}"
+      entity: "{{ hue_smart_scene }}"
+      cache: false
