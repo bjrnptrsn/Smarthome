@@ -44,66 +44,75 @@ enum CONFIG
   CONFIG_PUBLISH
 };
 
-unsigned long availabilityTimer;
-unsigned long measureTimer;
-
-bool lastMotionState = true;
-
-void checkMotion()
-{
-  bool motionState = digitalRead(MOTION_GPIO);
-
-  if (motionState != lastMotionState)
-  {
-    if (motionState)
-      mqtt.publish(motionSensor.stateTopic(), "{\"motion\":\"ON\"}");
-    else
-      mqtt.publish(motionSensor.stateTopic(), "{\"motion\":\"OFF\"}");
-
-    lastMotionState = motionState;
-  }
-}
+bool lastMotionState = false;
+int counter = 0;
+unsigned long timer = 0;
 
 void onMqttMessage(String &topic, String &payload)
 {
   light.parse(payload);
 }
 
-void ambientMeasurements(unsigned long delay_seconds = 300)
+void sendMotion(bool state = false)
 {
-  if (millis() - measureTimer > delay_seconds * 1000)
-  {
-    float temperature, humidity, pressure;
+  StaticJsonDocument<128> doc;
 
-    bme280.read(pressure, temperature, humidity, BME280::TempUnit_Celsius, BME280::PresUnit_hPa);
-    int illuminance = analogRead(A0);
+  if (state)
+    doc["motion"] = "ON";
+  else
+    doc["motion"] = "OFF";
+    
+  int illuminance = analogRead(A0);
+  doc["illuminance"] = illuminance * 5;
+  
+  char out[128];
+  serializeJson(doc, out);
+  
+  mqtt.publish(motionSensor.stateTopic(), out);
+}
+  
+void sendMeasurements()
+{
+  StaticJsonDocument<128> doc;
 
-    StaticJsonDocument<128> doc;
-    doc["temperature"] = std::ceil(temperature * 100) / 100.0; // shorten to 2 decimals places
-    doc["humidity"] = std::ceil(humidity * 100) / 100.0;
-    doc["pressure"] = std::ceil(pressure * 100) / 100.0;
-    // doc["pressure"] = int(pressure);
-    doc["illuminance"] = illuminance * 5;
+  float temperature, humidity, pressure;
+  bme280.read(pressure, temperature, humidity, BME280::TempUnit_Celsius, BME280::PresUnit_hPa);
+   
+  doc["temperature"] = std::ceil(temperature * 100) / 100.0; // shorten to 2 decimals places
+  doc["humidity"] = std::ceil(humidity * 100) / 100.0;
+  doc["pressure"] = std::ceil(pressure * 100) / 100.0;
 
-    char out[128];
-    serializeJson(doc, out);
+  char out[128];
+  serializeJson(doc, out);
 
-    mqtt.publish(temperatureSensor.stateTopic(), out);
-
-    measureTimer = millis();
-  }
+  mqtt.publish(temperatureSensor.stateTopic(), out);
 }
 
-void heartbeat(unsigned long delay_seconds = 60)
+void process()
 {
-  if (millis() - availabilityTimer > delay_seconds * 1000)
+  bool motionState = digitalRead(MOTION_GPIO);
+
+  if (motionState != lastMotionState)
   {
-    light.sendState();
+    sendMotion(motionState);
+    lastMotionState = motionState;
+  }
 
-    if (pushbutton.isIdle())
-      button.sendButtonState(ButtonEntity::BUTTON_IDLE);
+  // every minute
+  else if (millis() - timer > 60 * 1000)
+  {
+    sendMeasurements();
 
-    availabilityTimer = millis();
+    // heartbeat
+    counter++;
+    if (counter == 5)
+    {
+      light.sendState();
+      if (pushbutton.isIdle()) button.sendButtonState(ButtonEntity::BUTTON_IDLE);
+      counter = 0;
+    }
+
+    timer = millis();
   }
 }
 
@@ -181,44 +190,49 @@ void setupEntity(int config = CONFIG_READ)
 void setup()
 {
   Serial.begin(115200);
-  delay(1000);
+  delay(500);
 
   Serial.println();
   Serial.println(F("\n------------------------"));
   Serial.println(F(" This is emergency_exit"));
   Serial.println(F("------------------------"));
 
+  led.setColorRGB(0, 0, 0, 0);
+
   pinMode(MOTION_GPIO, INPUT);
   pinMode(BUTTON_GPIO, INPUT_PULLUP);
 
+  Wire.begin(BME280_SDA_GPIO, BME280_SCL_GPIO);
+  bme280.begin();
+
   LittleFS.begin();
 
+  ArduinoOTA.setHostname(MQTT_CLIENT);
+  ArduinoOTA.onStart([]()
+                     { led.setColorRGB(0, 0, 0, 0); });
+  ArduinoOTA.begin();
+
   setupConnect();
-
   setupEntity();
-
   setupButton();
 
   if (connect())
   {
     setupEntity(CONFIG_PUBLISH);
-    heartbeat(1);
+    delay(500);
+    sendMotion();
+    sendMeasurements();
+    button.sendButtonState(ButtonEntity::BUTTON_IDLE);
   }
-
-  led.setColorRGB(0, 0, 0, 0);
-
-  ArduinoOTA.setHostname(MQTT_CLIENT);
-  ArduinoOTA.onStart([]()
-                     { led.setColorRGB(0, 0, 0, 0); });
-
-  ArduinoOTA.begin();
-
-  Wire.begin(BME280_SDA_GPIO, BME280_SCL_GPIO);
-  bme280.begin();
 }
 
 void loop()
 {
+  led.setColorRGB(0, light.brightness(), 0, 0);
+  light.run();
+
+  pushbutton.tick();
+
   ArduinoOTA.handle();
 
   mqtt.loop();
@@ -226,15 +240,5 @@ void loop()
   if (!mqtt.connected())
     connect();
   else
-  {
-    heartbeat();
-    ambientMeasurements(15);
-  }
-
-  light.run();
-  led.setColorRGB(0, light.brightness(), 0, 0);
-
-  pushbutton.tick();
-
-  checkMotion();
+    process();
 }
