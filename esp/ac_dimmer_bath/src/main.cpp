@@ -16,6 +16,7 @@ MQTTClient mqtt(1024);
 MQTTClient* HAEntity::_mqtt = &mqtt;
 
 DimmerEntity dimmer(ZC_GPIO, PWM_GPIO);
+HAEntity reboot;
 
 enum CONFIG
 {
@@ -23,33 +24,32 @@ enum CONFIG
   CONFIG_PUBLISH
 };
 
-unsigned long availabilityTimer;
-
-void heartbeat(unsigned long delay_seconds = 60)
-{
-  if (millis() - availabilityTimer > delay_seconds * 1000)
-  {
-    dimmer.sendState();
-
-    availabilityTimer = millis();
-  }
-}
+unsigned long timer;
 
 void onMqttMessage(String &topic, String &payload)
 {
+  if (topic.equals(reboot.commandTopic()) && payload == "PRESS")
+    ESP.restart();
+
   if (topic.equals(dimmer.commandTopic()))
     dimmer.parse(payload);
 }
 
-void setupEntity(int config = CONFIG_READ)
+void initEntity(int config = CONFIG_READ)
 {
-  if (config != CONFIG_PUBLISH)
+  if (config == CONFIG_READ)
+  {
     dimmer.readConfig("/dimmer.json", "light");
-  else
+    reboot.readConfig("/reboot.json", "button");
+  }
+  else if (config == CONFIG_PUBLISH)
+  {
     dimmer.publishConfig();
+    reboot.publishConfig();
+  }
 }
 
-void setupConnect()
+void initConnect()
 {
   WiFi.disconnect(true);
   WiFi.mode(WIFI_STA);
@@ -81,6 +81,7 @@ bool connect()
   
   mqtt.publish(dimmer.availabilityTopic(), "online", true, 0);
   mqtt.subscribe(dimmer.commandTopic());
+  mqtt.subscribe(reboot.commandTopic());
 
   return true;
 }
@@ -88,43 +89,51 @@ bool connect()
 void setup()
 {
   Serial.begin(115200);
-  delay(1000);
+  delay(500);
 
-  Serial.println("\n------------------------");
-  Serial.println(" This is bath_ac_dimmer");
-  Serial.println("------------------------");
+  Serial.println("\n---------------------------");
+  Serial.println(" This is ac_dimmer_bath");
+  Serial.println("---------------------------");
 
   LittleFS.begin();
 
-  setupConnect();
-
-  setupEntity();
+  initConnect();
+  initEntity();
 
   if (connect())
   {
-    setupEntity(CONFIG_PUBLISH);
-    heartbeat(1);
+    initEntity(CONFIG_PUBLISH);
+    delay(500);
+    dimmer.sendState();
   }
 
   ArduinoOTA.setHostname(MQTT_CLIENT);
-  ArduinoOTA.onStart([]() {
-    dimmer.stop();
-  });
+  ArduinoOTA.onStart([]() {});
 
   ArduinoOTA.begin();
+}
+
+void process()
+{
+  // heartbeat
+  if (millis() - timer > 5 * 60 * 1000)
+  {
+    dimmer.sendState();
+
+    timer = millis();
+  }
 }
 
 void loop()
 {
   ArduinoOTA.handle();
 
-  if (!mqtt.connected())
-    connect();
-  else
-    heartbeat();
+  dimmer.run();
 
   mqtt.loop();
 
-  dimmer.run();
+  if (!mqtt.connected())
+    connect();
+  else
+    process();
 }
-

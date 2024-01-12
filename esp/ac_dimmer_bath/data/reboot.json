@@ -1,0 +1,16 @@
+{
+    "availability_topic": "home/bath/dimmer/status",
+    "command_topic": "home/bath/dimmer/reboot",
+    "device": {
+        "identifiers": [
+            "bath_ac_dimmer_esp"
+        ],
+        "manufacturer": "bjrnptrsn",
+        "model": "ac_dimmer (esp8266)",
+        "name": "Badezimmer Dimmer",
+        "sw_version": "ac_dimmer_v1"
+    },
+    "icon": "mdi:gesture-tap",
+    "name": "Reboot",
+    "unique_id": "bath_dimmer_reboot"
+}
