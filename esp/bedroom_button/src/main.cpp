@@ -18,6 +18,7 @@ MQTTClient* HAEntity::_mqtt = &mqtt;
 OneButton pushbutton(BUTTON_GPIO);
 
 ButtonEntity button;
+HAEntity reboot;
 
 enum CONFIG
 {
@@ -25,29 +26,15 @@ enum CONFIG
   CONFIG_PUBLISH
 };
 
-unsigned long availabilityTimer;
+unsigned long timer = 0;
 
 void onMqttMessage(String &topic, String &payload)
 {
-  Serial.println("\nmsg incoming:");
-  Serial.println(payload);
-
-  StaticJsonDocument<64> jsonDoc;
-  deserializeJson(jsonDoc, payload);
+  if (topic == reboot.commandTopic() && payload == "PRESS")
+    ESP.restart();
 }
 
-void heartbeat(unsigned long delay_seconds = 60)
-{
-  if (millis() - availabilityTimer > delay_seconds * 1000)
-  {
-    if (pushbutton.isIdle())
-      button.sendButtonState(ButtonEntity::BUTTON_IDLE);
-
-    availabilityTimer = millis();
-  }
-}
-
-void setupButton()
+void initButton()
 {
   pushbutton.attachIdle([]() { button.sendButtonState(ButtonEntity::BUTTON_IDLE); });
   pushbutton.attachClick([]() { button.sendButtonState(ButtonEntity::BUTTON_SINGLE); });
@@ -58,7 +45,21 @@ void setupButton()
   // pushbutton.attachDuringLongPress([](){ button.sendButtonState(ButtonEntity::BUTTON_LONG_DURING); });
 }
 
-void setupConnect()
+void initEntity(int config = CONFIG_READ)
+{
+  if (config == CONFIG_READ)
+  {
+    button.readConfig("/button.json", "sensor");
+    reboot.readConfig("/reboot.json", "button");
+  }
+  else if (config == CONFIG_PUBLISH)
+  {
+    button.publishConfig();
+    reboot.publishConfig();
+  }
+}
+
+void initConnect()
 {
   WiFi.disconnect(true);
   WiFi.mode(WIFI_STA);
@@ -89,22 +90,15 @@ bool connect()
     delay(10);
   
   mqtt.publish(button.availabilityTopic(), "online", true ,0);
+  mqtt.subscribe(reboot.commandTopic());
 
   return true;
-}
-
-void setupEntity(int config = CONFIG_READ)
-{
-  if (config != CONFIG_PUBLISH)
-    button.readConfig("/button.json", "sensor");
-  else
-    button.publishConfig();
 }
 
 void setup()
 {
   Serial.begin(115200);
-  delay(1000);
+  delay(500);
 
   Serial.println();
   Serial.println(F("\n------------------------"));
@@ -113,20 +107,31 @@ void setup()
 
   LittleFS.begin();
 
-  setupConnect();
-
-  setupEntity();
-
-  if (connect())
-  {
-    setupEntity(CONFIG_PUBLISH);
-    heartbeat(1);
-  }
-
   ArduinoOTA.setHostname(MQTT_CLIENT);
   ArduinoOTA.begin();
 
-  setupButton();
+  initButton();
+  initEntity();
+  initConnect();
+
+  if (connect())
+  {
+    initEntity(CONFIG_PUBLISH);
+    delay(500);
+    button.sendButtonState(ButtonEntity::BUTTON_IDLE);
+  }
+}
+
+void process()
+{
+  // heartbeat
+  if (millis() - timer > 5 * 60 * 1000)
+  {
+    if (pushbutton.isIdle())
+      button.sendButtonState(ButtonEntity::BUTTON_IDLE);
+
+    timer = millis();
+  }
 }
 
 void loop()
@@ -140,6 +145,6 @@ void loop()
   else
   {
     pushbutton.tick();
-    heartbeat();
+    process();
   }
 }
