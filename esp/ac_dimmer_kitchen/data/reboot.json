@@ -1,0 +1,16 @@
+{
+    "availability_topic": "home/kitchen/dimmer/status",
+    "command_topic": "home/kitchen/dimmer/reboot",
+    "device": {
+        "identifiers": [
+            "kitchen_ac_dimmer_8266"
+        ],
+        "manufacturer": "bjrnptrsn",
+        "model": "ac_dimmer (esp8266)",
+        "name": "Küche Dimmer",
+        "sw_version": "ac_dimmer_v1"
+    },
+    "icon": "mdi:gesture-tap",
+    "name": "Reboot",
+    "unique_id": "kitchen_dimmer_reboot"
+}
