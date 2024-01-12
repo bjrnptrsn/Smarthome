@@ -48,7 +48,7 @@ public:
         _availability_topic = _doc["availability_topic"].as<String>();
 
         String component = componentName;
-        // relay has no 'status_topic'
+        // relay has no 'state_topic'
         // 'command_topic' only needed for light and button
         if (!component.equals("relay"))
             _state_topic = _doc["state_topic"].as<String>();
