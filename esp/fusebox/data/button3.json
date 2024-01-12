@@ -6,7 +6,7 @@
         ],
         "manufacturer": "bjrnptrsn",
         "model": "fusebox (esp8266)",
-        "name": "Flur Sicherungskasten",
+        "name": "Flur Verteilung",
         "sw_version": "fusebox_v1"
     },
     "icon": "mdi:gesture-tap",

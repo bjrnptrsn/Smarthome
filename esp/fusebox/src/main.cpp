@@ -28,6 +28,8 @@ ButtonEntity button1;
 ButtonEntity button2;
 ButtonEntity button3;
 ButtonEntity button4;
+HAEntity buzzer;
+HAEntity reboot;
 
 enum CONFIG
 {
@@ -35,45 +37,23 @@ enum CONFIG
   CONFIG_PUBLISH
 };
 
-unsigned long availabilityTimer = 50 * 1000;
-
-void bell()
-{
-}
+unsigned long minuteTimer = 0;
+struct {
+  unsigned long timer = 0;
+  bool state = false;
+  bool set = false;
+} buzz;
 
 void onMqttMessage(String &topic, String &payload)
 {
-  Serial.println("\nmsg incoming:");
-  Serial.println(payload);
+  if (topic == reboot.commandTopic() && payload == "PRESS")
+    ESP.restart();
 
-  StaticJsonDocument<64> jsonDoc;
-  deserializeJson(jsonDoc, payload);
-
-  String buzzer = jsonDoc["buzzer"];
-  if (buzzer.equals("ON") or buzzer.equals("on")) bell();
+  if (topic == buzzer.commandTopic() && payload == "PRESS")
+    buzz.set = true;
 }
 
-void heartbeat(unsigned long delay_seconds = 60)
-{
-  if (millis() - availabilityTimer > delay_seconds * 1000)
-  {
-    if (pushbutton1.isIdle())
-      button1.sendButtonState(ButtonEntity::BUTTON_IDLE);
-      
-    if (pushbutton2.isIdle())
-      button2.sendButtonState(ButtonEntity::BUTTON_IDLE);
-
-    if (pushbutton3.isIdle())
-      button3.sendButtonState(ButtonEntity::BUTTON_IDLE);
-
-    if (pushbutton4.isIdle())
-      button4.sendButtonState(ButtonEntity::BUTTON_IDLE);
-
-    availabilityTimer = millis();
-  }
-}
-
-void setupButton()
+void initButton()
 {
   pushbutton1.attachIdle([]() { button1.sendButtonState(ButtonEntity::BUTTON_IDLE); });
   pushbutton1.attachClick([]() { button1.sendButtonState(ButtonEntity::BUTTON_SINGLE); });
@@ -108,7 +88,29 @@ void setupButton()
   // pushbutton4.attachDuringLongPress([](){ button4.sendButtonState(ButtonEntity::BUTTON_LONG_DURING); });
 }
 
-void setupConnect()
+void initEntity(int config = CONFIG_READ)
+{
+  if (config == CONFIG_READ)
+  {
+    button1.readConfig("/button1.json", "sensor");
+    button2.readConfig("/button2.json", "sensor");
+    button3.readConfig("/button3.json", "sensor");
+    button4.readConfig("/button4.json", "sensor");
+    buzzer.readConfig("/relay.json", "button");
+    reboot.readConfig("/reboot.json", "button");
+  }
+  else if (config == CONFIG_PUBLISH)
+  {
+    button1.publishConfig();
+    button2.publishConfig();
+    button3.publishConfig();
+    button4.publishConfig();
+    buzzer.publishConfig();
+    reboot.publishConfig();
+  }
+}
+
+void initConnect()
 {
   WiFi.disconnect(true);
   WiFi.mode(WIFI_STA);
@@ -139,54 +141,82 @@ bool connect()
     delay(10);
 
   mqtt.publish(button1.availabilityTopic(), "online", true, 0);
+  mqtt.subscribe(buzzer.commandTopic());
+  mqtt.subscribe(reboot.commandTopic());
 
   return true;
-}
-
-void setupEntity(int config = CONFIG_READ)
-{
-  if (config != CONFIG_PUBLISH)
-  {
-    button1.readConfig("/button1.json", "sensor");
-    button2.readConfig("/button2.json", "sensor");
-    button3.readConfig("/button3.json", "sensor");
-    button4.readConfig("/button4.json", "sensor");
-  }
-  else
-  {
-    button1.publishConfig();
-    button2.publishConfig();
-    button3.publishConfig();
-    button4.publishConfig();
-  }
 }
 
 void setup()
 {
   Serial.begin(115200);
-  delay(1000);
+  delay(500);
 
   Serial.println();
   Serial.println(F("\n-----------------"));
   Serial.println(F(" This is fusebox"));
   Serial.println(F("-----------------"));
 
+  pinMode(BUZZER_GPIO, OUTPUT);
+  digitalWrite(BUZZER_GPIO, HIGH);
+
   LittleFS.begin();
 
-  setupConnect();
+  ArduinoOTA.setHostname(MQTT_CLIENT);
+  ArduinoOTA.onStart([]()
+                     { digitalWrite(BUZZER_GPIO, HIGH); });
+  ArduinoOTA.begin();
 
-  setupEntity();
+  initButton();
+  initEntity();
+  initConnect();
 
   if (connect())
   {
-    setupEntity(CONFIG_PUBLISH);
-    heartbeat(1);
+    initEntity(CONFIG_PUBLISH);
+    delay(500);
+    button1.sendButtonState(ButtonEntity::BUTTON_IDLE);
+    button2.sendButtonState(ButtonEntity::BUTTON_IDLE);
+    button3.sendButtonState(ButtonEntity::BUTTON_IDLE);
+    button4.sendButtonState(ButtonEntity::BUTTON_IDLE);
+  }
+}
+
+void process()
+{
+  if (buzz.set)
+  {
+    if (!buzz.state)
+    {
+      digitalWrite(BUZZER_GPIO, LOW);
+      buzz.state = true;
+      buzz.timer = millis();
+    }
+    else if (millis() - buzz.timer > 1500)
+    {
+      digitalWrite(BUZZER_GPIO, HIGH);
+      buzz.state = false;
+      buzz.set = false;
+    }
   }
 
-  ArduinoOTA.setHostname(MQTT_CLIENT);
-  ArduinoOTA.begin();
+  // every minute
+  if (millis() - minuteTimer > 60 * 1000)
+  {
+    if (pushbutton1.isIdle())
+      button1.sendButtonState(ButtonEntity::BUTTON_IDLE);
+      
+    if (pushbutton2.isIdle())
+      button2.sendButtonState(ButtonEntity::BUTTON_IDLE);
 
-  setupButton();
+    if (pushbutton3.isIdle())
+      button3.sendButtonState(ButtonEntity::BUTTON_IDLE);
+
+    if (pushbutton4.isIdle())
+      button4.sendButtonState(ButtonEntity::BUTTON_IDLE);
+
+    minuteTimer = millis();
+  }
 }
 
 void loop()
@@ -203,6 +233,6 @@ void loop()
     pushbutton2.tick();
     pushbutton3.tick();
     pushbutton4.tick();
-    heartbeat();
+    process();
   }
 }

@@ -1,5 +1,6 @@
 {
     "availability_topic": "home/hall/fusebox/status",
+    "command_topic": "home/hall/fusebox/reboot",
     "device": {
         "identifiers": [
             "hall_fusebox_8266"
@@ -10,8 +11,6 @@
         "sw_version": "fusebox_v1"
     },
     "icon": "mdi:gesture-tap",
-    "name": "Tür Klingel",
-    "state_topic": "home/hall/fusebox/button4",
-    "unique_id": "hall_fusebox_button4",
-    "value_template": "{{ value_json.state }}"
+    "name": "Reboot",
+    "unique_id": "hall_fusebox_reboot"
 }
