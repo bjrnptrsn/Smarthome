@@ -37,6 +37,7 @@ HAEntity temperatureSensor;
 HAEntity humiditySensor;
 HAEntity pressureSensor;
 HAEntity illuminanceSensor;
+HAEntity reboot;
 
 enum CONFIG
 {
@@ -46,11 +47,15 @@ enum CONFIG
 
 bool lastMotionState = false;
 int counter = 0;
-unsigned long timer = 0;
+unsigned long minuteTimer = 0;
 
 void onMqttMessage(String &topic, String &payload)
 {
-  light.parse(payload);
+  if (topic == reboot.commandTopic() && payload == "PRESS")
+    ESP.restart();
+  
+  if (topic == light.commandTopic())
+    light.parse(payload);
 }
 
 void sendMotion(bool state = false)
@@ -88,35 +93,7 @@ void sendMeasurements()
   mqtt.publish(temperatureSensor.stateTopic(), out);
 }
 
-void process()
-{
-  bool motionState = digitalRead(MOTION_GPIO);
-
-  if (motionState != lastMotionState)
-  {
-    sendMotion(motionState);
-    lastMotionState = motionState;
-  }
-
-  // every minute
-  else if (millis() - timer > 60 * 1000)
-  {
-    sendMeasurements();
-
-    // heartbeat
-    counter++;
-    if (counter == 5)
-    {
-      light.sendState();
-      if (pushbutton.isIdle()) button.sendButtonState(ButtonEntity::BUTTON_IDLE);
-      counter = 0;
-    }
-
-    timer = millis();
-  }
-}
-
-void setupButton()
+void initButton()
 {
   pushbutton.attachIdle([]() { button.sendButtonState(ButtonEntity::BUTTON_IDLE); });
   pushbutton.attachClick([]() { button.sendButtonState(ButtonEntity::BUTTON_SINGLE); });
@@ -127,7 +104,33 @@ void setupButton()
   // pushbutton.attachDuringLongPress([](){ buttonEntity.sendButtonState(ButtonEntity::BUTTON_LONG_DURING); });
 }
 
-void setupConnect()
+void initEntity(int config = CONFIG_READ)
+{
+  if (config == CONFIG_READ)
+  {
+    light.readConfig("/light.json", "light");
+    motionSensor.readConfig("/motion.json", "binary_sensor");
+    button.readConfig("/button.json", "sensor");
+    temperatureSensor.readConfig("/temperature.json", "sensor");
+    humiditySensor.readConfig("/humidity.json", "sensor");
+    pressureSensor.readConfig("/pressure.json", "sensor");
+    illuminanceSensor.readConfig("/illuminance.json", "sensor");
+    reboot.readConfig("/reboot.json", "button");
+  }
+  else if (config == CONFIG_PUBLISH)
+  {
+    light.publishConfig();
+    motionSensor.publishConfig();
+    button.publishConfig();
+    temperatureSensor.publishConfig();
+    humiditySensor.publishConfig();
+    pressureSensor.publishConfig();
+    illuminanceSensor.publishConfig();
+    reboot.publishConfig();
+  }
+}
+
+void initConnect()
 {
   WiFi.disconnect(true);
   WiFi.mode(WIFI_STA);
@@ -159,32 +162,9 @@ bool connect()
 
   mqtt.publish(light.availabilityTopic(), "online", true, 0);
   mqtt.subscribe(light.commandTopic());
+  mqtt.subscribe(reboot.commandTopic());
 
   return true;
-}
-
-void setupEntity(int config = CONFIG_READ)
-{
-  if (config != CONFIG_PUBLISH)
-  {
-    light.readConfig("/light.json", "light");
-    motionSensor.readConfig("/motion.json", "binary_sensor");
-    button.readConfig("/button.json", "sensor");
-    temperatureSensor.readConfig("/temperature.json", "sensor");
-    humiditySensor.readConfig("/humidity.json", "sensor");
-    pressureSensor.readConfig("/pressure.json", "sensor");
-    illuminanceSensor.readConfig("/illuminance.json", "sensor");
-  }
-  else
-  {
-    light.publishConfig();
-    motionSensor.publishConfig();
-    button.publishConfig();
-    temperatureSensor.publishConfig();
-    humiditySensor.publishConfig();
-    pressureSensor.publishConfig();
-    illuminanceSensor.publishConfig();
-  }
 }
 
 void setup()
@@ -212,17 +192,47 @@ void setup()
                      { led.setColorRGB(0, 0, 0, 0); });
   ArduinoOTA.begin();
 
-  setupConnect();
-  setupEntity();
-  setupButton();
+  initButton();
+  initEntity();
+  initConnect();
 
   if (connect())
   {
-    setupEntity(CONFIG_PUBLISH);
+    initEntity(CONFIG_PUBLISH);
     delay(500);
     sendMotion();
     sendMeasurements();
     button.sendButtonState(ButtonEntity::BUTTON_IDLE);
+    light.sendState();
+  }
+}
+
+void process()
+{
+  bool motionState = digitalRead(MOTION_GPIO);
+
+  if (motionState != lastMotionState)
+  {
+    sendMotion(motionState);
+    lastMotionState = motionState;
+  }
+
+  // every minute
+  else if (millis() - minuteTimer > 60 * 1000)
+  {
+    sendMeasurements();
+
+    // heartbeat
+    counter++;
+    if (counter > 4)
+    {
+      light.sendState();
+      if (pushbutton.isIdle()) button.sendButtonState(ButtonEntity::BUTTON_IDLE);
+      counter = 0;
+      lastMotionState = !lastMotionState;
+    }
+
+    minuteTimer = millis();
   }
 }
 
@@ -231,8 +241,6 @@ void loop()
   led.setColorRGB(0, light.brightness(), 0, 0);
   light.run();
 
-  pushbutton.tick();
-
   ArduinoOTA.handle();
 
   mqtt.loop();
@@ -240,5 +248,8 @@ void loop()
   if (!mqtt.connected())
     connect();
   else
+  {
+    pushbutton.tick();
     process();
+  }
 }

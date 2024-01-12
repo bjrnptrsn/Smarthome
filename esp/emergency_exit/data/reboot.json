@@ -1,5 +1,6 @@
 {
     "availability_topic": "home/living/emergency_exit/status",
+    "command_topic": "home/living/emergency_exit/reboot",
     "device": {
         "identifiers": [
             "living_emergency_exit_esp"
@@ -10,9 +11,6 @@
         "sw_version": "emergency_exit_v1"
     },
     "icon": "mdi:gesture-tap",
-    "name": "Relais",
-    "command_topic": "home/living/emergency_exit/relay/set",
-    "payload_press": true,
-    "unique_id": "living_emergency_exit_relay",
-    "command_template": "{{ value_json.trigger }}"
+    "name": "Reboot",
+    "unique_id": "living_emergency_exit_reboot"
 }
