@@ -1,0 +1,19 @@
+{
+    "availability_topic": "home/hall/fusebox/status",
+    "device": {
+        "identifiers": [
+            "hall_fusebox_8266"
+        ],
+        "manufacturer": "bjrnptrsn",
+        "model": "fusebox (esp8266)",
+        "name": "Flur Verteilung",
+        "sw_version": "fusebox_v1"
+    },
+    "icon": "mdi:temperature-celsius",
+    "name": "Temperature",
+    "device_class": "temperature",
+    "unit_of_measurement": "°C",
+    "state_topic": "home/hall/fusebox/ambient",
+    "unique_id": "hall_fusebox_temperature",
+    "value_template": "{{ value_json.temperature }}"
+}

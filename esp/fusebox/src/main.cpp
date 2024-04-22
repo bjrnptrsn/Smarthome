@@ -7,6 +7,9 @@
 #include <ArduinoJson.h>
 #include <SmarthomeHelper.h>
 #include <OneButton.h>
+#include <BME280I2C.h>
+#include <Wire.h>
+#include <SPI.h>
 #include "config.h"
 
 #define BUTTON_1_GPIO 13  // D7
@@ -14,6 +17,8 @@
 #define BUTTON_3_GPIO 12  // D6
 #define BUTTON_4_GPIO 5   // D1
 #define BUZZER_GPIO   4   // D2
+#define BME280_SCL_GPIO 3 // RX
+#define BME280_SDA_GPIO 1 // TX
 
 WiFiClient net;
 MQTTClient mqtt(1024);
@@ -30,6 +35,11 @@ ButtonEntity button3;
 ButtonEntity button4;
 HAEntity buzzer;
 HAEntity reboot;
+HAEntity temperatureSensor;
+HAEntity humiditySensor;
+HAEntity pressureSensor;
+
+BME280I2C bme280;
 
 enum CONFIG
 {
@@ -51,6 +61,23 @@ void onMqttMessage(String &topic, String &payload)
 
   if (topic == buzzer.commandTopic() && payload == "PRESS")
     buzz.set = true;
+}
+  
+void sendMeasurements()
+{
+  StaticJsonDocument<128> doc;
+
+  float temperature, humidity, pressure;
+  bme280.read(pressure, temperature, humidity, BME280::TempUnit_Celsius, BME280::PresUnit_hPa);
+   
+  doc["temperature"] = std::ceil(temperature * 100) / 100.0; // shorten to 2 decimals places
+  doc["humidity"] = std::ceil(humidity * 100) / 100.0;
+  doc["pressure"] = std::ceil(pressure * 100) / 100.0;
+
+  char out[128];
+  serializeJson(doc, out);
+
+  mqtt.publish(temperatureSensor.stateTopic(), out);
 }
 
 void initButton()
@@ -98,7 +125,9 @@ void initEntity(int config = CONFIG_READ)
     button4.readConfig("/button4.json", "sensor");
     buzzer.readConfig("/relay.json", "button");
     reboot.readConfig("/reboot.json", "button");
-  }
+    temperatureSensor.readConfig("/temperature.json", "sensor");
+    humiditySensor.readConfig("/humidity.json", "sensor");
+    pressureSensor.readConfig("/pressure.json", "sensor");  }
   else if (config == CONFIG_PUBLISH)
   {
     button1.publishConfig();
@@ -107,7 +136,9 @@ void initEntity(int config = CONFIG_READ)
     button4.publishConfig();
     buzzer.publishConfig();
     reboot.publishConfig();
-  }
+    temperatureSensor.publishConfig();
+    humiditySensor.publishConfig();
+    pressureSensor.publishConfig();  }
 }
 
 void initConnect()
@@ -160,6 +191,9 @@ void setup()
   pinMode(BUZZER_GPIO, OUTPUT);
   digitalWrite(BUZZER_GPIO, HIGH);
 
+  Wire.begin(BME280_SDA_GPIO, BME280_SCL_GPIO);
+  bme280.begin();
+
   LittleFS.begin();
 
   ArduinoOTA.setHostname(MQTT_CLIENT);
@@ -179,6 +213,7 @@ void setup()
     button2.sendButtonState(ButtonEntity::BUTTON_IDLE);
     button3.sendButtonState(ButtonEntity::BUTTON_IDLE);
     button4.sendButtonState(ButtonEntity::BUTTON_IDLE);
+    sendMeasurements();
   }
 }
 
@@ -214,6 +249,8 @@ void process()
 
     if (pushbutton4.isIdle())
       button4.sendButtonState(ButtonEntity::BUTTON_IDLE);
+
+    sendMeasurements();
 
     minuteTimer = millis();
   }

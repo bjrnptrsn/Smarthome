@@ -1,0 +1,19 @@
+{
+    "availability_topic": "home/hall/fusebox/status",
+    "device": {
+        "identifiers": [
+            "hall_fusebox_8266"
+        ],
+        "manufacturer": "bjrnptrsn",
+        "model": "fusebox (esp8266)",
+        "name": "Flur Verteilung",
+        "sw_version": "fusebox_v1"
+    },
+    "icon": "mdi:gauge",
+    "name": "Luftdruck",
+    "device_class": "pressure",
+    "unit_of_measurement": "hPa",
+    "state_topic": "home/hall/fusebox/ambient",
+    "unique_id": "hall_fusebox_pressure",
+    "value_template": "{{ value_json.pressure }}"
+}
