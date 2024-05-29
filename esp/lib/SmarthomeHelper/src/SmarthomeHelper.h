@@ -382,110 +382,6 @@ public:
     }
 };
 
-class DimmerEntity : public LightEngine
-{
-public:
-    enum AC
-    {
-        AC_OFF,
-        AC_ON,
-        AC_DIM
-    };
-
-    static int s_zcGPIO;
-    static int s_pwmGPIO;
-    static int s_powerState;
-    static bool s_pwmState;
-    static int s_pwmDelay;
-    static int s_pwmBrightnessScaleFactor;
-
-protected:
-public:
-    DimmerEntity(int ZC_GPIO, int PWM_GPIO, int brightnessScale = BRIGHTNESS_SCALE, int transition_ms = TRANSITION_DEFAULT)
-    {
-        s_zcGPIO = ZC_GPIO;
-        s_pwmGPIO = PWM_GPIO;
-        s_pwmBrightnessScaleFactor = 32000 / brightnessScale;
-
-        _brightnessScale = brightnessScale;
-        _set_transition_ms = transition_ms;
-
-        init();
-    }
-
-    ~DimmerEntity() {}
-
-    bool parse(String &payload)
-    {
-        if (parseJson(payload))
-        {
-            sendState();
-            attachInterrupt(digitalPinToInterrupt(s_zcGPIO), zcDetectISR, FALLING);
-
-            return true;
-        }
-        else
-            return false;
-    }
-
-    void stop()
-    {
-        detachInterrupt(s_zcGPIO);
-        digitalWrite(s_pwmGPIO, LOW);
-    }
-
-    void run()
-    {
-        LightEngine::run();
-
-        s_pwmState = digitalRead(s_pwmGPIO);
-
-        if (_brightness == 0)
-            s_powerState = AC_OFF;
-        else if (_brightness == _brightnessScale)
-            s_powerState = AC_ON;
-        else
-        {
-            s_powerState = AC_DIM;
-
-            // ESP8266: timer1 (80MHz / DIV16 -> 5 ticks/µs) --> 6250ticks = 1250µs (max brightness), 38250 = 7650µs (low brightness)
-            // pwmBrightnessScaleFactor = 38250-6250 / brightnessScale
-            s_pwmDelay = ((_brightnessScale - _brightness) * s_pwmBrightnessScaleFactor) + 6250;
-        }
-    }
-
-private:
-    static void init()
-    {
-        pinMode(s_zcGPIO, INPUT);
-        pinMode(s_pwmGPIO, OUTPUT);
-
-        timer1_attachInterrupt(dimmer);
-        timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
-    }
-
-    static void IRAM_ATTR zcDetectISR()
-    {
-        timer1_write(s_pwmDelay);
-    }
-
-    static void IRAM_ATTR dimmer()
-    {
-        if (s_powerState == AC_DIM)
-        {
-            digitalWrite(s_pwmGPIO, !s_pwmState);
-            if (!s_pwmState)
-                timer1_write(1500);
-        }
-
-        if (s_powerState < AC_DIM)
-        {
-            detachInterrupt(digitalPinToInterrupt(s_zcGPIO));
-            digitalWrite(s_pwmGPIO, s_powerState);
-        }
-    }
-};
-
 class ButtonEntity : public HAEntity
 {
 
@@ -544,13 +440,5 @@ public:
         _mqtt->publish(_state_topic, out);
     }
 };
-
-int DimmerEntity::s_zcGPIO = -1;
-int DimmerEntity::s_pwmGPIO = -1;
-
-bool DimmerEntity::s_pwmState = DimmerEntity::AC_OFF;
-int DimmerEntity::s_powerState = DimmerEntity::AC_OFF;
-int DimmerEntity::s_pwmDelay = 1500;
-int DimmerEntity::s_pwmBrightnessScaleFactor = 32000 / BRIGHTNESS_SCALE;
 
 #endif
