@@ -12,13 +12,13 @@
 #include <SPI.h>
 #include "config.h"
 
-#define BUTTON_1_GPIO 13  // D7
-#define BUTTON_2_GPIO 14  // D5
-#define BUTTON_3_GPIO 12  // D6
-#define BUTTON_4_GPIO 5   // D1
-#define BUZZER_GPIO   4   // D2
-#define BME280_SCL_GPIO 3 // RX
-#define BME280_SDA_GPIO 1 // TX
+#define BUTTON_1_GPIO   13  // D7
+#define BUTTON_2_GPIO   14  // D5
+#define BUTTON_3_GPIO   12  // D6
+#define BUTTON_4_GPIO    5  // D1
+#define BUZZER_GPIO      4  // D2
+#define BME280_SCL_GPIO  3  // RX
+#define BME280_SDA_GPIO  1  // TX
 
 WiFiClient net;
 MQTTClient mqtt(1024);
@@ -127,7 +127,8 @@ void initEntity(int config = CONFIG_READ)
     reboot.readConfig("/reboot.json", "button");
     temperatureSensor.readConfig("/temperature.json", "sensor");
     humiditySensor.readConfig("/humidity.json", "sensor");
-    pressureSensor.readConfig("/pressure.json", "sensor");  }
+    pressureSensor.readConfig("/pressure.json", "sensor");  
+  }
   else if (config == CONFIG_PUBLISH)
   {
     button1.publishConfig();
@@ -138,7 +139,8 @@ void initEntity(int config = CONFIG_READ)
     reboot.publishConfig();
     temperatureSensor.publishConfig();
     humiditySensor.publishConfig();
-    pressureSensor.publishConfig();  }
+    pressureSensor.publishConfig();  
+  }
 }
 
 void initConnect()
