@@ -1,0 +1,16 @@
+{
+    "availability_topic": "home/hall/fusebox/status",
+    "command_topic": "home/hall/fusebox/reboot",
+    "device": {
+        "identifiers": [
+            "hall_fusebox"
+        ],
+        "manufacturer": "bjrnptrsn",
+        "model": "fusebox (esp32-c3)",
+        "name": "Flur Verteilung",
+        "sw_version": "fusebox_v2"
+    },
+    "icon": "mdi:gesture-tap",
+    "name": "Reboot",
+    "unique_id": "hall_fusebox_reboot"
+}

@@ -1,0 +1,19 @@
+{
+    "availability_topic": "home/hall/fusebox/status",
+    "device": {
+        "identifiers": [
+            "hall_fusebox"
+        ],
+        "manufacturer": "bjrnptrsn",
+        "model": "fusebox (esp32-c3)",
+        "name": "Flur Verteilung",
+        "sw_version": "fusebox_v2"
+    },
+    "icon": "mdi:temperature-celsius",
+    "name": "CPU Temperature",
+    "device_class": "temperature",
+    "unit_of_measurement": "°C",
+    "state_topic": "home/hall/fusebox/ambient",
+    "unique_id": "hall_fusebox_cputemp",
+    "value_template": "{{ value_json.cpu_temp }}"
+}
