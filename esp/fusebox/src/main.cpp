@@ -128,10 +128,10 @@ void initEntity(int config = CONFIG_READ)
 void initConnect()
 {
   WiFi.disconnect(true);
-  WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
   WiFi.setHostname(MQTT_CLIENT);
   WiFi.persistent(true);
+  WiFi.mode(WIFI_STA);
   WiFi.begin(SSID, PASS);
 
   mqtt.begin(MQTT_BROKER, net);
@@ -151,11 +151,11 @@ bool connect()
   wifiDisconnectTimer_ms = 0;
 
   Serial.println("connecting MQTT...");
-  mqtt.setWill(button1.availabilityTopic().c_str(), "offline", true, 0);
+  mqtt.setWill(cputemp.availabilityTopic().c_str(), "offline", true, 0);
   while (!mqtt.connect(MQTT_CLIENT))
     delay(10);
 
-  mqtt.publish(button1.availabilityTopic(), "online", true, 0);
+  mqtt.publish(cputemp.availabilityTopic(), "online", true, 0);
   mqtt.subscribe(buzzer.commandTopic());
   mqtt.subscribe(reboot.commandTopic());
 
