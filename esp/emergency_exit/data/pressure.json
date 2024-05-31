@@ -1,0 +1,19 @@
+{
+    "availability_topic": "home/living/emergency_exit/status",
+    "device": {
+        "identifiers": [
+            "living_emergency_exit"
+        ],
+        "manufacturer": "bjrnptrsn",
+        "model": "emergency_exit (esp32-c3)",
+        "name": "Wohnzimmer Notausgang",
+        "sw_version": "emergency_exit_v2"
+    },
+    "icon": "mdi:gauge",
+    "name": "Luftdruck",
+    "device_class": "pressure",
+    "unit_of_measurement": "hPa",
+    "state_topic": "home/living/emergency_exit/ambient",
+    "unique_id": "living_emergency_exit_pressure",
+    "value_template": "{{ value_json.pressure }}"
+}

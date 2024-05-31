@@ -1,0 +1,16 @@
+{
+    "availability_topic": "home/living/emergency_exit/status",
+    "command_topic": "home/living/emergency_exit/reboot",
+    "device": {
+        "identifiers": [
+            "living_emergency_exit"
+        ],
+        "manufacturer": "bjrnptrsn",
+        "model": "emergency_exit (esp32-c3)",
+        "name": "Wohnzimmer Notausgang",
+        "sw_version": "emergency_exit_v2"
+    },
+    "icon": "mdi:gesture-tap",
+    "name": "Reboot",
+    "unique_id": "living_emergency_exit_reboot"
+}
