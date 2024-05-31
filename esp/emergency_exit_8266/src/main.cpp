@@ -13,12 +13,12 @@
 #include <ChainableLED.h>
 #include "config.h"
 
-#define BME280_SCL_GPIO 5 // D1
-#define BME280_SDA_GPIO 4 // D2
-#define P9813_CIN_GPIO 13 // D7
-#define P9813_DIN_GPIO 15 // D8
-#define MOTION_GPIO 14    // D5
-#define BUTTON_GPIO 12    // D6
+#define BME280_SCL_GPIO  5  // D1
+#define BME280_SDA_GPIO  4  // D2
+#define P9813_CIN_GPIO  13  // D7
+#define P9813_DIN_GPIO  15  // D8
+#define MOTION_GPIO     14  // D5
+#define BUTTON_GPIO     12  // D6
 
 WiFiClient net;
 MQTTClient mqtt(1024);
@@ -67,8 +67,8 @@ void sendMotion(bool state = false)
   else
     doc["motion"] = "OFF";
     
-  int illuminance = analogRead(A0);
-  doc["illuminance"] = illuminance * 5;
+  int illuminance = analogRead(A0) * 5;
+  doc["illuminance"] = std::ceil(illuminance * 100) / 100.0;
   
   char out[128];
   serializeJson(doc, out);
