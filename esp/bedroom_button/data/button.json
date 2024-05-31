@@ -1,0 +1,17 @@
+{
+    "availability_topic": "home/bedroom/button/status",
+    "device": {
+        "identifiers": [
+            "bedroom_button"
+        ],
+        "manufacturer": "bjrnptrsn",
+        "model": "bedroom_button (esp32-c3)",
+        "name": "Schlafzimmer Lichtschalter",
+        "sw_version": "bedroom_button_v2"
+    },
+    "icon": "mdi:gesture-tap",
+    "name": "Lichtschalter",
+    "state_topic": "home/bedroom/button/button",
+    "unique_id": "bedroom_button",
+    "value_template": "{{ value_json.state }}"
+}

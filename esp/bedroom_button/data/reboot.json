@@ -1,0 +1,16 @@
+{
+    "availability_topic": "home/bedroom/button/status",
+    "command_topic": "home/bedroom/button/reboot",
+    "device": {
+        "identifiers": [
+            "bedroom_button"
+        ],
+        "manufacturer": "bjrnptrsn",
+        "model": "bedroom_button (esp32-c3)",
+        "name": "Schlafzimmer Lichtschalter",
+        "sw_version": "bedroom_button_v2"
+    },
+    "icon": "mdi:gesture-tap",
+    "name": "Reboot",
+    "unique_id": "bedroom_button_reboot"
+}
