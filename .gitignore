@@ -1,3 +1,6 @@
 .DS_Store
 .local/
 *.code-workspace
+esp32-c3/
+esp32-s3/
+esp32-zigbee/
