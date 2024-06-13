@@ -21,7 +21,7 @@ protected:
     String _discovery_topic;
 
 private:
-    StaticJsonDocument<1024> _doc;
+    JsonDocument _doc;
 
 public:
     HAEntity() {}
@@ -213,7 +213,7 @@ public:
 
     bool parseJson(String &payload)
     {
-        StaticJsonDocument<128> doc;
+        JsonDocument doc;
         deserializeJson(doc, payload);
 
         int docBrightness = -1;
@@ -283,7 +283,7 @@ public:
     String composeJson()
     {
 
-        StaticJsonDocument<128> doc;
+        JsonDocument doc;
 
         if (_transitionEnd > 0)
             doc["state"] = "ON";
@@ -432,7 +432,7 @@ public:
             break;
         }
 
-        StaticJsonDocument<64> doc;
+        JsonDocument doc;
         doc["state"] = state;
 
         char out[64];

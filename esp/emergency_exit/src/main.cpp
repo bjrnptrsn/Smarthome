@@ -11,10 +11,10 @@
 #include <SPI.h>
 #include "config.h"
 
-#define BME280_SDA_GPIO       0
-#define BME280_SCL_GPIO       1
-#define TEMT6000_TOP_GPIO     2
-#define TEMT6000_BOTTOM_GPIO  3
+#define TEMT6000_TOP_GPIO     0
+#define TEMT6000_BOTTOM_GPIO  1
+#define BME280_SDA_GPIO       2
+#define BME280_SCL_GPIO       3
 #define BUTTON_GPIO           5
 #define MOTION_GPIO           6
 
@@ -54,7 +54,7 @@ void onMqttMessage(String &topic, String &payload)
 
 void sendMotion(bool state = false)
 {
-  StaticJsonDocument<128> doc;
+  JsonDocument doc;
 
   if (state)
     doc["motion"] = "ON";
@@ -66,15 +66,15 @@ void sendMotion(bool state = false)
   float volts_top = analogRead(TEMT6000_TOP_GPIO) * 3.3 / 4096.0; // 3.3 V
   float volts_bottom = analogRead(TEMT6000_BOTTOM_GPIO) * 3.3 / 4096.0; // 3.3 V
 
-  // float lux_top = volts_top * 200; // 1 µA = 2 lx
-  // float lux_bottom = volts_bottom * 200; // 1 µA = 2 lx
   int lux_top = volts_top * 200; // 1 µA = 2 lx
   int lux_bottom = volts_bottom * 200; // 1 µA = 2 lx
-
-  // doc["illuminance_top"] = std::ceil(lux_top * 100) / 100.0;
-  // doc["illuminance_bottom"] = std::ceil(lux_bottom * 100) / 100.0;
   doc["illuminance_top"] = lux_top;
   doc["illuminance_bottom"] = lux_bottom;
+
+  // float lux_top = volts_top * 200; // 1 µA = 2 lx
+  // float lux_bottom = volts_bottom * 200; // 1 µA = 2 lx
+  // doc["illuminance_top"] = std::ceil(lux_top * 100) / 100.0;
+  // doc["illuminance_bottom"] = std::ceil(lux_bottom * 100) / 100.0;
   
   char out[128];
   serializeJson(doc, out);
@@ -84,7 +84,7 @@ void sendMotion(bool state = false)
   
 void sendMeasurements()
 {
-  StaticJsonDocument<128> doc;
+  JsonDocument doc;
 
   float temperature, humidity, pressure;
   bme280.read(pressure, temperature, humidity, BME280::TempUnit_Celsius, BME280::PresUnit_hPa);
@@ -188,8 +188,6 @@ void setup()
   Wire.begin(BME280_SDA_GPIO, BME280_SCL_GPIO);
   bme280.begin();
 
-  pinMode(TEMT6000_TOP_GPIO, INPUT);
-  pinMode(TEMT6000_BOTTOM_GPIO, INPUT);
   pinMode(MOTION_GPIO, INPUT);
   pinMode(BUTTON_GPIO, INPUT_PULLUP);
 

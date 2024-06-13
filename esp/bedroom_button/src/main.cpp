@@ -36,7 +36,7 @@ void onMqttMessage(String &topic, String &payload)
 
 void sendMeasurements()
 {
-  StaticJsonDocument<128> doc;
+  JsonDocument doc;
 
   doc["cpu_temp"] = std::ceil(temperatureRead() * 100) / 100.0;
 
