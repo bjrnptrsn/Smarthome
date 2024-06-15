@@ -37,7 +37,8 @@ enum CONFIG
   CONFIG_PUBLISH
 };
 
-unsigned long minuteTimer = 0;
+unsigned long connectionTimer = 0;
+unsigned long processTimer = 0;
 
 struct {
   unsigned long timer = 0;
@@ -58,7 +59,7 @@ void sendMeasurements()
 {
   JsonDocument doc;
 
-  doc["cpu_temp"] = std::ceil(temperatureRead() * 100) / 100.0; // shorten to 2 decimals places
+  doc["cpu_temp"] = std::round(temperatureRead() * 100) / 100.0; // shorten to 2 decimals places
 
   char out[128];
   serializeJson(doc, out);
@@ -135,31 +136,34 @@ void initConnect()
   WiFi.begin(SSID, PASS);
 
   mqtt.begin(MQTT_BROKER, net);
+  mqtt.setWill(cputemp.availabilityTopic().c_str(), "offline", true, 0);
   mqtt.onMessage(onMqttMessage);
 }
 
-bool connect()
+void connect()
 {
-  Serial.println("\nchecking WiFi...");
-  unsigned long wifiDisconnectTimer_ms = millis();
+  connectionTimer = millis();
+
+  Serial.print("\nChecking WiFi and MQTT connection...");
   while (WiFi.status() != WL_CONNECTED)
   {
-    delay(10);
-    if (millis() - wifiDisconnectTimer_ms > 8000)
+    delay(500);
+    Serial.print(".");
+    if (millis() - connectionTimer > 8000)
       ESP.restart();
   }
-  wifiDisconnectTimer_ms = 0;
+  Serial.println("\nWiFi connected.");
 
-  Serial.println("connecting MQTT...");
-  mqtt.setWill(cputemp.availabilityTopic().c_str(), "offline", true, 0);
-  while (!mqtt.connect(MQTT_CLIENT))
-    delay(10);
+  mqtt.connect(MQTT_CLIENT);
+  delay(100);
 
-  mqtt.publish(cputemp.availabilityTopic(), "online", true, 0);
-  mqtt.subscribe(buzzer.commandTopic());
-  mqtt.subscribe(reboot.commandTopic());
-
-  return true;
+  if (mqtt.connected())
+  {
+    mqtt.publish(cputemp.availabilityTopic(), "online", true, 0);
+    mqtt.subscribe(buzzer.commandTopic());
+    mqtt.subscribe(reboot.commandTopic());
+    Serial.println("MQTT connected.");
+  }
 }
 
 void setup()
@@ -181,22 +185,21 @@ void setup()
   initEntity();
   initConnect();
 
+  connect();
+
   ArduinoOTA.setHostname(MQTT_CLIENT);
-  ArduinoOTA.onStart([]() { 
-      digitalWrite(BUZZER_GPIO, LOW);
-    });
+  ArduinoOTA.onStart([](){});
   ArduinoOTA.begin();
 
-  if (connect())
-  {
-    initEntity(CONFIG_PUBLISH);
-    delay(500);
-    button1.sendButtonState(ButtonEntity::BUTTON_IDLE);
-    button2.sendButtonState(ButtonEntity::BUTTON_IDLE);
-    button3.sendButtonState(ButtonEntity::BUTTON_IDLE);
-    button4.sendButtonState(ButtonEntity::BUTTON_IDLE);
-    sendMeasurements();
-  }
+  initEntity(CONFIG_PUBLISH);
+  delay(100);
+
+  // sending initial states
+  button1.sendButtonState(ButtonEntity::BUTTON_IDLE);
+  button2.sendButtonState(ButtonEntity::BUTTON_IDLE);
+  button3.sendButtonState(ButtonEntity::BUTTON_IDLE);
+  button4.sendButtonState(ButtonEntity::BUTTON_IDLE);
+  sendMeasurements();
 }
 
 void process()
@@ -218,7 +221,7 @@ void process()
   }
 
   // every minute
-  if (millis() - minuteTimer > 60 * 1000)
+  if (millis() - processTimer > 60 * 1000)
   {
     if (pushbutton1.isIdle())
       button1.sendButtonState(ButtonEntity::BUTTON_IDLE);
@@ -234,7 +237,7 @@ void process()
 
     sendMeasurements();
 
-    minuteTimer = millis();
+    processTimer = millis();
   }
 }
 

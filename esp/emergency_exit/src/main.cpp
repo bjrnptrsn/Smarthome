@@ -43,8 +43,8 @@ enum CONFIG
 };
 
 bool lastMotionState = false;
-int counter = 0;
-unsigned long minuteTimer = 0;
+unsigned long processTimer = 0;
+unsigned long connectionTimer = 0;
 
 void onMqttMessage(String &topic, String &payload)
 {
@@ -88,11 +88,11 @@ void sendMeasurements()
 
   float temperature, humidity, pressure;
   bme280.read(pressure, temperature, humidity, BME280::TempUnit_Celsius, BME280::PresUnit_hPa);
-   
-  doc["temperature"] = std::ceil(temperature * 100) / 100.0; // shorten to 2 decimals places
-  doc["humidity"] = std::ceil(humidity * 100) / 100.0;
-  doc["pressure"] = std::ceil(pressure * 100) / 100.0;
-  doc["cpu_temp"] = std::ceil(temperatureRead() * 100) / 100.0;
+  
+  doc["temperature"] = std::round(temperature * 100) / 100.0; // shorten to 2 decimals places
+  doc["humidity"] = std::round(humidity * 100) / 100.0;
+  doc["pressure"] = std::round(pressure * 100) / 100.0;
+  doc["cpu_temp"] = std::round(temperatureRead() * 100) / 100.0;
 
   char out[128];
   serializeJson(doc, out);
@@ -149,30 +149,33 @@ void initConnect()
   WiFi.begin(SSID, PASS);
 
   mqtt.begin(MQTT_BROKER, net);
+  mqtt.setWill(cputemp.availabilityTopic().c_str(), "offline", true, 0);
   mqtt.onMessage(onMqttMessage);
 }
 
-bool connect()
+void connect()
 {
-  Serial.println("\nChecking WiFi...");
-  unsigned long wifiDisconnectTimer_ms = millis();
+  connectionTimer = millis();
+
+  Serial.print("\nChecking WiFi and MQTT connection...");
   while (WiFi.status() != WL_CONNECTED)
   {
-    delay(10);
-    if (millis() - wifiDisconnectTimer_ms > 8000)
+    delay(500);
+    Serial.print(".");
+    if (millis() - connectionTimer > 8000)
       ESP.restart();
   }
-  wifiDisconnectTimer_ms = 0;
+  Serial.println("\nWiFi connected.");
 
-  Serial.println("Connecting MQTT...");
-  mqtt.setWill(cputemp.availabilityTopic().c_str(), "offline", true, 0);
-  while (!mqtt.connect(MQTT_CLIENT))
-    delay(10);
+  mqtt.connect(MQTT_CLIENT);
+  delay(100);
 
-  mqtt.publish(cputemp.availabilityTopic(), "online", true, 0);
-  mqtt.subscribe(reboot.commandTopic());
-
-  return true;
+  if (mqtt.connected())
+  {
+    mqtt.publish(cputemp.availabilityTopic(), "online", true, 0);
+    mqtt.subscribe(reboot.commandTopic());
+    Serial.println("MQTT connected.");
+  }
 }
 
 void setup()
@@ -197,18 +200,19 @@ void setup()
   initEntity();
   initConnect();
 
+  connect();
+
   ArduinoOTA.setHostname(MQTT_CLIENT);
   ArduinoOTA.onStart([](){});
   ArduinoOTA.begin();
 
-  if (connect())
-  {
-    initEntity(CONFIG_PUBLISH);
-    delay(500);
-    sendMotion();
-    sendMeasurements();
-    button.sendButtonState(ButtonEntity::BUTTON_IDLE);
-  }
+  initEntity(CONFIG_PUBLISH);
+  delay(100);
+
+  // sending initial states
+  sendMotion();
+  sendMeasurements();
+  button.sendButtonState(ButtonEntity::BUTTON_IDLE);
 }
 
 void process()
@@ -222,12 +226,12 @@ void process()
   }
 
   // every minute
-  else if (millis() - minuteTimer > 60 * 1000)
+  else if (millis() - processTimer > 60 * 1000)
   {
     sendMeasurements();
     if (!motionState) sendMotion();
     if (pushbutton.isIdle()) button.sendButtonState(ButtonEntity::BUTTON_IDLE);
-    minuteTimer = millis();
+    processTimer = millis();
   }
 }
 
