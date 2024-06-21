@@ -7,6 +7,7 @@
 #include <SmarthomeHelper.h>
 #include <OneButton.h>
 #include <BME280I2C.h>
+#include <EnvironmentCalculations.h>
 #include <Wire.h>
 #include <SPI.h>
 #include "config.h"
@@ -31,6 +32,7 @@ HAEntity motionSensor;
 HAEntity temperatureSensor;
 HAEntity humiditySensor;
 HAEntity pressureSensor;
+HAEntity dewpointSensor;
 HAEntity illuminanceSensorTop;
 HAEntity illuminanceSensorBottom;
 HAEntity reboot;
@@ -92,6 +94,7 @@ void sendMeasurements()
   doc["temperature"] = std::round(temperature * 100) / 100.0; // shorten to 2 decimals places
   doc["humidity"] = std::round(humidity * 100) / 100.0;
   doc["pressure"] = std::round(pressure * 100) / 100.0;
+  doc["dewpoint"] = std::round(EnvironmentCalculations::DewPoint(temperature, humidity) * 100) / 100.0;
   doc["cpu_temp"] = std::round(temperatureRead() * 100) / 100.0;
 
   char out[128];
@@ -120,6 +123,7 @@ void initEntity(int config = CONFIG_READ)
     temperatureSensor.readConfig("/temperature.json", "sensor");
     humiditySensor.readConfig("/humidity.json", "sensor");
     pressureSensor.readConfig("/pressure.json", "sensor");
+    dewpointSensor.readConfig("/dewpoint.json", "sensor");
     illuminanceSensorTop.readConfig("/illuminanceTop.json", "sensor");
     illuminanceSensorBottom.readConfig("/illuminanceBottom.json", "sensor");
     reboot.readConfig("/reboot.json", "button");
@@ -132,6 +136,7 @@ void initEntity(int config = CONFIG_READ)
     temperatureSensor.publishConfig();
     humiditySensor.publishConfig();
     pressureSensor.publishConfig();
+    dewpointSensor.publishConfig();
     illuminanceSensorTop.publishConfig();
     illuminanceSensorBottom.publishConfig();
     reboot.publishConfig();
