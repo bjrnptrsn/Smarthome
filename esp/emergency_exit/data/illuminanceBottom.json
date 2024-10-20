@@ -13,6 +13,7 @@
     "name": "Lichtsensor Unten",
     "device_class": "illuminance",
     "unit_of_measurement": "lx",
+    "state_class": "measurement",
     "state_topic": "home/living/emergency_exit/motion",
     "unique_id": "living_emergency_exit_illuminance2",
     "value_template": "{{ value_json.illuminance_bottom }}"

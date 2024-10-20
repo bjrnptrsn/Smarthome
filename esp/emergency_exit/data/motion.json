@@ -9,7 +9,6 @@
         "name": "Wohnzimmer Notausgang",
         "sw_version": "emergency_exit_v2"
     },
-    "icon": "mdi:motion-sensor",
     "name": "Bewegung",
     "device_class": "motion",
     "state_topic": "home/living/emergency_exit/motion",

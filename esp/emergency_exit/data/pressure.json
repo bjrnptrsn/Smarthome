@@ -11,8 +11,9 @@
     },
     "icon": "mdi:gauge",
     "name": "Luftdruck",
-    "device_class": "pressure",
+    "device_class": "atmospheric_pressure",
     "unit_of_measurement": "hPa",
+    "state_class": "measurement",
     "state_topic": "home/living/emergency_exit/ambient",
     "unique_id": "living_emergency_exit_pressure",
     "value_template": "{{ value_json.pressure }}"

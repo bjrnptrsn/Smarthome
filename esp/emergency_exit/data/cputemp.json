@@ -13,6 +13,7 @@
     "name": "CPU Temperature",
     "device_class": "temperature",
     "unit_of_measurement": "°C",
+    "state_class": "measurement",
     "state_topic": "home/living/emergency_exit/ambient",
     "unique_id": "living_emergency_exit_cputemp",
     "value_template": "{{ value_json.cpu_temp }}"
