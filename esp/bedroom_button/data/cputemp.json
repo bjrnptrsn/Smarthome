@@ -7,14 +7,14 @@
         "manufacturer": "bjrnptrsn",
         "model": "bedroom_button (esp32-c3)",
         "name": "Schlafzimmer Lichtschalter",
-        "sw_version": "bedroom_button_v2"
+        "sw_version": "bedroom_button_v3"
     },
+    "device_class": "temperature",
     "icon": "mdi:temperature-celsius",
     "name": "CPU Temperature",
-    "device_class": "temperature",
-    "unit_of_measurement": "°C",
     "state_class": "measurement",
     "state_topic": "home/bedroom/button/ambient",
     "unique_id": "bedroom_button_cputemp",
+    "unit_of_measurement": "°C",
     "value_template": "{{ value_json.cpu_temp }}"
 }

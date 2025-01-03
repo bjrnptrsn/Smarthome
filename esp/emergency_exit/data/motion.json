@@ -7,10 +7,10 @@
         "manufacturer": "bjrnptrsn",
         "model": "emergency_exit (esp32-c3)",
         "name": "Wohnzimmer Notausgang",
-        "sw_version": "emergency_exit_v2"
+        "sw_version": "emergency_exit_v3"
     },
-    "name": "Bewegung",
     "device_class": "motion",
+    "name": "Bewegung",
     "state_topic": "home/living/emergency_exit/motion",
     "unique_id": "living_emergency_exit_motion",
     "value_template": "{{ value_json.motion }}"

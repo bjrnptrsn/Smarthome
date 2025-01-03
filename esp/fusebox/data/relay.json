@@ -8,9 +8,8 @@
         "manufacturer": "bjrnptrsn",
         "model": "fusebox (esp32-c3)",
         "name": "Flur Verteilung",
-        "sw_version": "fusebox_v2"
+        "sw_version": "fusebox_v3"
     },
-    "icon": "mdi:gesture-tap",
     "name": "Tür Summer",
     "unique_id": "hall_fusebox_buzzer"
 }

@@ -7,11 +7,25 @@
         "manufacturer": "bjrnptrsn",
         "model": "fusebox (esp32-c3)",
         "name": "Flur Verteilung",
-        "sw_version": "fusebox_v2"
+        "sw_version": "fusebox_v3"
     },
-    "icon": "mdi:gesture-tap",
+    "device_class": "button",
+    "event_types": [
+        "idle",
+        "singleclick",
+        "longpress",
+        "doubleclick",
+        "3 clicks",
+        "4 clicks",
+        "5 clicks",
+        "6 clicks",
+        "7 clicks",
+        "8 clicks",
+        "9 clicks",
+        "10 clicks"
+    ],
     "name": "Lichtschalter Flur",
     "state_topic": "home/hall/fusebox/button1",
     "unique_id": "hall_fusebox_button1",
-    "value_template": "{{ value_json.state }}"
+    "value_template": "{ \"event_type\": \"{{ value_json.state }}\" }"
 }

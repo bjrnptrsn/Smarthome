@@ -7,14 +7,14 @@
         "manufacturer": "bjrnptrsn",
         "model": "emergency_exit (esp32-c3)",
         "name": "Wohnzimmer Notausgang",
-        "sw_version": "emergency_exit_v2"
+        "sw_version": "emergency_exit_v3"
     },
+    "device_class": "temperature",
     "icon": "mdi:temperature-celsius",
     "name": "Temperatur",
-    "device_class": "temperature",
-    "unit_of_measurement": "°C",
     "state_class": "measurement",
     "state_topic": "home/living/emergency_exit/ambient",
     "unique_id": "living_emergency_exit_temperature",
+    "unit_of_measurement": "°C",
     "value_template": "{{ value_json.temperature }}"
 }

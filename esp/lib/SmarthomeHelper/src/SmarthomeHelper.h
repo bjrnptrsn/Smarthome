@@ -50,8 +50,9 @@ public:
         String component = componentName;
         // relay has no 'state_topic'
         // 'command_topic' only needed for light and button
-        if (!component.equals("relay"))
+        if (!component.equals("event") or !component.equals("button"))
             _state_topic = _doc["state_topic"].as<String>();
+
         if (component.equals("light") || component.equals("button"))
             _command_topic = _doc["command_topic"].as<String>();
 

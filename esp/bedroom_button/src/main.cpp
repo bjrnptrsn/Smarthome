@@ -62,7 +62,7 @@ void initEntity(int config = CONFIG_READ)
 {
   if (config == CONFIG_READ)
   {
-    button.readConfig("/button.json", "sensor");
+    button.readConfig("/button.json", "event");
     reboot.readConfig("/reboot.json", "button");
     cputemp.readConfig("/cputemp.json", "sensor");
   }
@@ -149,8 +149,6 @@ void process()
   if (millis() - processTimer > 60 * 1000)
   {
     sendMeasurements();
-    if (pushbutton.isIdle()) button.sendButtonState(ButtonEntity::BUTTON_IDLE);
-
     processTimer = millis();
   }
 }

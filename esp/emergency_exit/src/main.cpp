@@ -119,7 +119,7 @@ void initEntity(int config = CONFIG_READ)
   if (config == CONFIG_READ)
   {
     motionSensor.readConfig("/motion.json", "binary_sensor");
-    button.readConfig("/button.json", "sensor");
+    button.readConfig("/button.json", "event");
     temperatureSensor.readConfig("/temperature.json", "sensor");
     humiditySensor.readConfig("/humidity.json", "sensor");
     pressureSensor.readConfig("/pressure.json", "sensor");
@@ -235,7 +235,6 @@ void process()
   {
     sendMeasurements();
     if (!motionState) sendMotion();
-    if (pushbutton.isIdle()) button.sendButtonState(ButtonEntity::BUTTON_IDLE);
     processTimer = millis();
   }
 }

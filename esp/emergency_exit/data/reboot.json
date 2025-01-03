@@ -8,9 +8,9 @@
         "manufacturer": "bjrnptrsn",
         "model": "emergency_exit (esp32-c3)",
         "name": "Wohnzimmer Notausgang",
-        "sw_version": "emergency_exit_v2"
+        "sw_version": "emergency_exit_v3"
     },
-    "icon": "mdi:gesture-tap",
+    "device_class": "restart",
     "name": "Reboot",
     "unique_id": "living_emergency_exit_reboot"
 }

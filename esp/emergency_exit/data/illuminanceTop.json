@@ -7,14 +7,14 @@
         "manufacturer": "bjrnptrsn",
         "model": "emergency_exit (esp32-c3)",
         "name": "Wohnzimmer Notausgang",
-        "sw_version": "emergency_exit_v2"
+        "sw_version": "emergency_exit_v3"
     },
+    "device_class": "illuminance",
     "icon": "mdi:brightness-5",
     "name": "Lichtsensor Oben",
-    "device_class": "illuminance",
-    "unit_of_measurement": "lx",
     "state_class": "measurement",
     "state_topic": "home/living/emergency_exit/motion",
     "unique_id": "living_emergency_exit_illuminance1",
+    "unit_of_measurement": "lx",
     "value_template": "{{ value_json.illuminance_top }}"
 }

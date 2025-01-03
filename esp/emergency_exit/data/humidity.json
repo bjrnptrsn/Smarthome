@@ -7,14 +7,14 @@
         "manufacturer": "bjrnptrsn",
         "model": "emergency_exit (esp32-c3)",
         "name": "Wohnzimmer Notausgang",
-        "sw_version": "emergency_exit_v2"
+        "sw_version": "emergency_exit_v3"
     },
+    "device_class": "humidity",
     "icon": "mdi:water-percent",
     "name": "Luftfeuchtigkeit",
-    "device_class": "humidity",
-    "unit_of_measurement": "%",
     "state_class": "measurement",
     "state_topic": "home/living/emergency_exit/ambient",
     "unique_id": "living_emergency_exit_humidity",
+    "unit_of_measurement": "%",
     "value_template": "{{ value_json.humidity }}"
 }

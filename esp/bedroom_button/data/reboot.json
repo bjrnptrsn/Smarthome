@@ -8,9 +8,9 @@
         "manufacturer": "bjrnptrsn",
         "model": "bedroom_button (esp32-c3)",
         "name": "Schlafzimmer Lichtschalter",
-        "sw_version": "bedroom_button_v2"
+        "sw_version": "bedroom_button_v3"
     },
-    "icon": "mdi:gesture-tap",
+    "device_class": "restart",
     "name": "Reboot",
     "unique_id": "bedroom_button_reboot"
 }

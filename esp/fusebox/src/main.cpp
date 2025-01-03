@@ -106,10 +106,10 @@ void initEntity(int config = CONFIG_READ)
 {
   if (config == CONFIG_READ)
   {
-    button1.readConfig("/button1.json", "sensor");
-    button2.readConfig("/button2.json", "sensor");
-    button3.readConfig("/button3.json", "sensor");
-    button4.readConfig("/button4.json", "sensor");
+    button1.readConfig("/button1.json", "event");
+    button2.readConfig("/button2.json", "event");
+    button3.readConfig("/button3.json", "event");
+    button4.readConfig("/button4.json", "event");
     buzzer.readConfig("/relay.json", "button");
     reboot.readConfig("/reboot.json", "button");
     cputemp.readConfig("/cputemp.json", "sensor");
@@ -223,20 +223,7 @@ void process()
   // every minute
   if (millis() - processTimer > 60 * 1000)
   {
-    if (pushbutton1.isIdle())
-      button1.sendButtonState(ButtonEntity::BUTTON_IDLE);
-      
-    if (pushbutton2.isIdle())
-      button2.sendButtonState(ButtonEntity::BUTTON_IDLE);
-
-    if (pushbutton3.isIdle())
-      button3.sendButtonState(ButtonEntity::BUTTON_IDLE);
-
-    if (pushbutton4.isIdle())
-      button4.sendButtonState(ButtonEntity::BUTTON_IDLE);
-
     sendMeasurements();
-
     processTimer = millis();
   }
 }

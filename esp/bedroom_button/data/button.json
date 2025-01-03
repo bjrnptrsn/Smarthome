@@ -7,11 +7,25 @@
         "manufacturer": "bjrnptrsn",
         "model": "bedroom_button (esp32-c3)",
         "name": "Schlafzimmer Lichtschalter",
-        "sw_version": "bedroom_button_v2"
+        "sw_version": "bedroom_button_v3"
     },
-    "icon": "mdi:gesture-tap",
+    "device_class": "button",
+    "event_types": [
+        "idle",
+        "singleclick",
+        "longpress",
+        "doubleclick",
+        "3 clicks",
+        "4 clicks",
+        "5 clicks",
+        "6 clicks",
+        "7 clicks",
+        "8 clicks",
+        "9 clicks",
+        "10 clicks"
+    ],
     "name": "Lichtschalter",
     "state_topic": "home/bedroom/button/button",
-    "unique_id": "bedroom_button",
-    "value_template": "{{ value_json.state }}"
+    "unique_id": "bedroom_button_button",
+    "value_template": "{ \"event_type\": \"{{ value_json.state }}\" }"
 }
