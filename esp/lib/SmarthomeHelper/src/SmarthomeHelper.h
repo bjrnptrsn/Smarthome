@@ -402,6 +402,10 @@ public:
         BUTTON_LONG_STOP
     };
 
+private:
+    String _previous_state = "";
+
+public:
     void sendButtonState(int action, int clicks = 0)
     {
         String state;
@@ -435,6 +439,10 @@ public:
 
         JsonDocument doc;
         doc["state"] = state;
+        doc["previous_state"] = _previous_state;
+
+        if (!state.equals("idle"))
+            _previous_state = state;
 
         char out[64];
         serializeJson(doc, out);
