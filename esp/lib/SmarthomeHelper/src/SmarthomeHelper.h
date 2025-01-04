@@ -403,7 +403,7 @@ public:
     };
 
 private:
-    String _previous_state = "";
+    String _previous_state = "idle";
 
 public:
     void sendButtonState(int action, int clicks = 0)
