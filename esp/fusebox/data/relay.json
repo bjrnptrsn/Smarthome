@@ -10,7 +10,7 @@
         "name": "Flur Verteilung",
         "sw_version": "fusebox_v3"
     },
-    "icon": "mdi:gesture-tap-button",
-    "name": "Tür Summer",
+    "icon": "mdi:key-variant",
+    "name": "Türöffner",
     "unique_id": "hall_fusebox_buzzer"
 }

@@ -9,7 +9,7 @@
         "name": "Flur Verteilung",
         "sw_version": "fusebox_v3"
     },
-    "device_class": "button",
+    "device_class": "doorbell",
     "event_types": [
         "idle",
         "singleclick",
@@ -24,7 +24,9 @@
         "9 clicks",
         "10 clicks"
     ],
-    "name": "Tür Klingel",
+    "json_attributes_template": "{ \"previous_event_type\": \"{{ value_json.previous_state }}\" }",
+    "json_attributes_topic": "home/hall/fusebox/button4",
+    "name": "Klingel",
     "state_topic": "home/hall/fusebox/button4",
     "unique_id": "hall_fusebox_button4",
     "value_template": "{ \"event_type\": \"{{ value_json.state }}\" }"

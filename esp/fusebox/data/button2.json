@@ -24,6 +24,8 @@
         "9 clicks",
         "10 clicks"
     ],
+    "json_attributes_template": "{ \"previous_event_type\": \"{{ value_json.previous_state }}\" }",
+    "json_attributes_topic": "home/hall/fusebox/button2",
     "name": "Lichtschalter Badezimmer",
     "state_topic": "home/hall/fusebox/button2",
     "unique_id": "hall_fusebox_button2",
