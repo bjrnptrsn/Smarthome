@@ -37,7 +37,7 @@ enum CONFIG
   CONFIG_PUBLISH
 };
 
-unsigned long connectionTimer = 0;
+unsigned long lastConnectEventTime = 0;
 unsigned long processTimer = 0;
 
 struct {
@@ -48,7 +48,8 @@ struct {
 
 void onMqttMessage(String &topic, String &payload)
 {
-  if (topic == reboot.commandTopic() && payload == "PRESS")
+  // only react 5 seconds after reboot
+  if (topic == reboot.commandTopic() && payload == "PRESS" && millis() - lastConnectEventTime > 5000)
     ESP.restart();
 
   if (topic == buzzer.commandTopic() && payload == "PRESS")
@@ -142,23 +143,24 @@ void initConnect()
 
 void connect()
 {
-  connectionTimer = millis();
-
+  lastConnectEventTime = millis();
+  
   Serial.print("\nChecking WiFi and MQTT connection...");
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
     Serial.print(".");
-    if (millis() - connectionTimer > 8000)
-      ESP.restart();
+    if (millis() - lastConnectEventTime > 8000)
+    ESP.restart();
   }
   Serial.println("\nWiFi connected.");
-
+  
   mqtt.connect(MQTT_CLIENT);
   delay(100);
-
+  
   if (mqtt.connected())
   {
+    lastConnectEventTime = millis();
     mqtt.publish(cputemp.availabilityTopic(), "online", true, 0);
     mqtt.subscribe(buzzer.commandTopic());
     mqtt.subscribe(reboot.commandTopic());

@@ -26,12 +26,13 @@ enum CONFIG
   CONFIG_PUBLISH
 };
 
-unsigned long connectionTimer = 0;
+unsigned long lastConnectEventTime = 0;
 unsigned long processTimer = 0;
 
 void onMqttMessage(String &topic, String &payload)
 {
-  if (topic == reboot.commandTopic() && payload == "PRESS")
+  // Prevents frequent reboots by ensuring at least 5 seconds have passed since the last potential reboot trigger
+  if (topic == reboot.commandTopic() && payload == "PRESS" && millis() - lastConnectEventTime > 5000)
     ESP.restart();
 }
 
@@ -90,14 +91,14 @@ void initConnect()
 
 void connect()
 {
-  connectionTimer = millis();
+  lastConnectEventTime = millis();
 
   Serial.print("\nChecking WiFi and MQTT connection...");
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
     Serial.print(".");
-    if (millis() - connectionTimer > 8000)
+    if (millis() - lastConnectEventTime > 8000)
       ESP.restart();
   }
   Serial.println("\nWiFi connected.");
@@ -107,6 +108,7 @@ void connect()
 
   if (mqtt.connected())
   {
+    lastConnectEventTime = millis();
     mqtt.publish(cputemp.availabilityTopic(), "online", true, 0);
     mqtt.subscribe(reboot.commandTopic());
     Serial.println("MQTT connected.");

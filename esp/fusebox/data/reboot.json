@@ -12,5 +12,6 @@
     },
     "device_class": "restart",
     "name": "Reboot",
+    "retain": true,
     "unique_id": "hall_fusebox_reboot"
 }
