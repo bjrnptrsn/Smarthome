@@ -8,11 +8,17 @@
 #include <OneButton.h>
 #include "config.h"
 
-#define BUTTON_1_GPIO   3
-#define BUTTON_2_GPIO   2
-#define BUTTON_3_GPIO   1
-#define BUTTON_4_GPIO   0
-#define BUZZER_GPIO     4
+static constexpr int BUTTON_1_GPIO = 3;
+static constexpr int BUTTON_2_GPIO = 2;
+static constexpr int BUTTON_3_GPIO = 1;
+static constexpr int BUTTON_4_GPIO = 0;
+static constexpr int BUZZER_GPIO   = 4;
+
+static constexpr unsigned long SECOND_MS          = 1000;
+static constexpr unsigned long DOOR_UNLOCK_MS     = 1.5 * SECOND_MS;    // buzzer activation time in milliseconds
+static constexpr unsigned long REBOOT_BLOCKING_MS = 5   * SECOND_MS;  // 
+static constexpr unsigned long CONNECT_TIMEOUT_MS = 8   * SECOND_MS; 
+static constexpr unsigned long MINUTE_MS          = 60  * SECOND_MS;
 
 WiFiClient net;
 MQTTClient mqtt(1024);
@@ -48,8 +54,7 @@ struct {
 
 void onMqttMessage(String &topic, String &payload)
 {
-  // only react 5 seconds after reboot
-  if (topic == reboot.commandTopic() && payload == "PRESS" && millis() - lastConnectEventTime > 5000)
+  if (topic == reboot.commandTopic() && payload == "PRESS" && millis() - lastConnectEventTime >= REBOOT_BLOCKING_MS)
     ESP.restart();
 
   if (topic == buzzer.commandTopic() && payload == "PRESS")
@@ -60,7 +65,7 @@ void sendMeasurements()
 {
   JsonDocument doc;
 
-  doc["cpu_temp"] = std::round(temperatureRead() * 100) / 100.0; // shorten to 2 decimals places
+  doc["cpu_temp"] = std::round(temperatureRead() * 100) / 100.0f; // shorten to 2 decimals places
 
   char out[128];
   serializeJson(doc, out);
@@ -150,7 +155,7 @@ void connect()
   {
     delay(500);
     Serial.print(".");
-    if (millis() - lastConnectEventTime > 8000)
+    if (millis() - lastConnectEventTime >= CONNECT_TIMEOUT_MS)
     ESP.restart();
   }
   Serial.println("\nWiFi connected.");
@@ -214,7 +219,7 @@ void process()
       buzz.state = true;
       buzz.timer = millis();
     }
-    else if (millis() - buzz.timer > 1500)
+    else if (millis() - buzz.timer >= DOOR_UNLOCK_MS)
     {
       digitalWrite(BUZZER_GPIO, LOW);
       buzz.state = false;
@@ -223,7 +228,7 @@ void process()
   }
 
   // every minute
-  if (millis() - processTimer > 60 * 1000)
+  if (millis() - processTimer >= MINUTE_MS)
   {
     sendMeasurements();
     processTimer = millis();

@@ -12,12 +12,17 @@
 #include <SPI.h>
 #include "config.h"
 
-#define TEMT6000_TOP_GPIO     0
-#define TEMT6000_BOTTOM_GPIO  1
-#define BME280_SDA_GPIO       2
-#define BME280_SCL_GPIO       3
-#define BUTTON_GPIO           5
-#define MOTION_GPIO           6
+static constexpr int TEMT6000_TOP_GPIO    = 0;
+static constexpr int TEMT6000_BOTTOM_GPIO = 1;
+static constexpr int BME280_SDA_GPIO      = 2;
+static constexpr int BME280_SCL_GPIO      = 3;
+static constexpr int BUTTON_GPIO          = 5;
+static constexpr int MOTION_GPIO          = 6;
+
+static constexpr unsigned long SECOND_MS          = 1000;
+static constexpr unsigned long REBOOT_BLOCKING_MS = 5  * SECOND_MS;
+static constexpr unsigned long CONNECT_TIMEOUT_MS = 8  * SECOND_MS; 
+static constexpr unsigned long MINUTE_MS          = 60 * SECOND_MS;
 
 WiFiClient net;
 MQTTClient mqtt(1024);
@@ -48,10 +53,19 @@ bool lastMotionState = false;
 unsigned long processTimer = 0;
 unsigned long lastConnectEventTime = 0;
 
+int readLux(int pin)
+{
+  static constexpr float ADC_REF_VOLTAGE    = 3.3f;     // Reference voltage of the ADC (typically 3.3V on ESP32)
+  static constexpr int   ADC_MAX_READING    = 4095;     // Maximum value for 12-bit ADC (0–4095)
+  static constexpr float VOLT_TO_LUX_FACTOR = 200.0f;   // Approximate conversion: lux = volts * 200
+
+  float volts = (analogRead(pin) * ADC_REF_VOLTAGE) / ADC_MAX_READING;
+  return int(volts * VOLT_TO_LUX_FACTOR);
+}
+
 void onMqttMessage(String &topic, String &payload)
 {
-  // only react 5 seconds after reboot
-  if (topic == reboot.commandTopic() && payload == "PRESS" && millis() - lastConnectEventTime > 5000)
+  if (topic == reboot.commandTopic() && payload == "PRESS" && millis() - lastConnectEventTime >= REBOOT_BLOCKING_MS)
     ESP.restart();
 }
 
@@ -64,21 +78,9 @@ void sendMotion(bool state = false)
   else
     doc["motion"] = "OFF";
 
-  analogReadResolution(12); // 12 bits
+  doc["illuminance_top"] = readLux(TEMT6000_TOP_GPIO);
+  doc["illuminance_bottom"] = readLux(TEMT6000_BOTTOM_GPIO);
 
-  float volts_top = analogRead(TEMT6000_TOP_GPIO) * 3.3 / 4096.0; // 3.3 V
-  float volts_bottom = analogRead(TEMT6000_BOTTOM_GPIO) * 3.3 / 4096.0; // 3.3 V
-
-  int lux_top = volts_top * 200; // 1 µA = 2 lx
-  int lux_bottom = volts_bottom * 200; // 1 µA = 2 lx
-  doc["illuminance_top"] = lux_top;
-  doc["illuminance_bottom"] = lux_bottom;
-
-  // float lux_top = volts_top * 200; // 1 µA = 2 lx
-  // float lux_bottom = volts_bottom * 200; // 1 µA = 2 lx
-  // doc["illuminance_top"] = std::ceil(lux_top * 100) / 100.0;
-  // doc["illuminance_bottom"] = std::ceil(lux_bottom * 100) / 100.0;
-  
   char out[128];
   serializeJson(doc, out);
   
@@ -92,11 +94,11 @@ void sendMeasurements()
   float temperature, humidity, pressure;
   bme280.read(pressure, temperature, humidity, BME280::TempUnit_Celsius, BME280::PresUnit_hPa);
   
-  doc["temperature"] = std::round(temperature * 100) / 100.0; // shorten to 2 decimals places
-  doc["humidity"] = std::round(humidity * 100) / 100.0;
-  doc["pressure"] = std::round(pressure * 100) / 100.0;
-  doc["dewpoint"] = std::round(EnvironmentCalculations::DewPoint(temperature, humidity) * 100) / 100.0;
-  doc["cpu_temp"] = std::round(temperatureRead() * 100) / 100.0;
+  doc["temperature"] = std::round(temperature * 100) / 100.0f; // shorten to 2 decimals places
+  doc["humidity"] = std::round(humidity * 100) / 100.0f;
+  doc["pressure"] = std::round(pressure * 100) / 100.0f;
+  doc["dewpoint"] = std::round(EnvironmentCalculations::DewPoint(temperature, humidity) * 100) / 100.0f;
+  doc["cpu_temp"] = std::round(temperatureRead() * 100) / 100.0f;
 
   char out[128];
   serializeJson(doc, out);
@@ -168,7 +170,7 @@ void connect()
   {
     delay(500);
     Serial.print(".");
-    if (millis() - lastConnectEventTime > 8000)
+    if (millis() - lastConnectEventTime >= CONNECT_TIMEOUT_MS)
     ESP.restart();
   }
   Serial.println("\nWiFi connected.");
@@ -200,6 +202,8 @@ void setup()
 
   pinMode(MOTION_GPIO, INPUT);
   pinMode(BUTTON_GPIO, INPUT_PULLUP);
+
+  analogReadResolution(12); // 12 bits
 
   LittleFS.begin();
 
@@ -233,7 +237,7 @@ void process()
   }
 
   // every minute
-  else if (millis() - processTimer > 60 * 1000)
+  else if (millis() - processTimer >= MINUTE_MS)
   {
     sendMeasurements();
     if (!motionState) sendMotion();

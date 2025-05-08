@@ -8,7 +8,12 @@
 #include <OneButton.h>
 #include "config.h"
 
-#define BUTTON_GPIO 0
+static constexpr int BUTTON_GPIO = 0;
+
+static constexpr unsigned long SECOND_MS          = 1000;
+static constexpr unsigned long REBOOT_BLOCKING_MS = 5  * SECOND_MS;
+static constexpr unsigned long CONNECT_TIMEOUT_MS = 8  * SECOND_MS; 
+static constexpr unsigned long MINUTE_MS          = 60 * SECOND_MS;
 
 WiFiClient net;
 MQTTClient mqtt(1024);
@@ -31,8 +36,7 @@ unsigned long processTimer = 0;
 
 void onMqttMessage(String &topic, String &payload)
 {
-  // Prevents frequent reboots by ensuring at least 5 seconds have passed since the last potential reboot trigger
-  if (topic == reboot.commandTopic() && payload == "PRESS" && millis() - lastConnectEventTime > 5000)
+  if (topic == reboot.commandTopic() && payload == "PRESS" && millis() - lastConnectEventTime >= REBOOT_BLOCKING_MS)
     ESP.restart();
 }
 
@@ -40,7 +44,7 @@ void sendMeasurements()
 {
   JsonDocument doc;
 
-  doc["cpu_temp"] = std::round(temperatureRead() * 100) / 100.0;
+  doc["cpu_temp"] = std::round(temperatureRead() * 100) / 100.0f;
 
   char out[128];
   serializeJson(doc, out);
@@ -98,7 +102,7 @@ void connect()
   {
     delay(500);
     Serial.print(".");
-    if (millis() - lastConnectEventTime > 8000)
+    if (millis() - lastConnectEventTime >= CONNECT_TIMEOUT_MS)
       ESP.restart();
   }
   Serial.println("\nWiFi connected.");
@@ -148,7 +152,7 @@ void setup()
 void process()
 {
   // heartbeat
-  if (millis() - processTimer > 60 * 1000)
+  if (millis() - processTimer >= MINUTE_MS )
   {
     sendMeasurements();
     processTimer = millis();
