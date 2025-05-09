@@ -133,24 +133,33 @@ trace:
 variables:
   # room
   room_sensor: !input room_sensor
-  room_state: "{{ iif(states(room_sensor) == 'on', 'open', 'close') if (room_sensor) else None }}"
-  room_last_changed: "{{ ((now() - states[room_sensor].last_changed).total_seconds() | default(999, true) | int) if (room_sensor) else 999 }}"
+  # room_state: "{{ iif(states(room_sensor) == 'on', 'open', 'close') if (room_sensor) else None }}"
+  # room_last_changed: "{{ ((now() - states[room_sensor].last_changed).total_seconds() | default(999, true) | int) if (room_sensor) else 999 }}"
+  room_state: "{{ 'open' if (room_sensor is defined and room_sensor is string and states(room_sensor) == 'on') else 'close' }}"
+  room_last_changed: "{{ ((now() - states[room_sensor].last_changed).total_seconds() | default(999, true) | int) if (room_sensor is defined and room_sensor is string and states[room_sensor] is not none) else 999 }}"
   # zone
   zone_sensor: !input zone_sensor
-  zone_state: "{{ iif(states(zone_sensor) == 'on', 'open', 'close') if (zone_sensor) else None }}"
-  zone_last_changed: "{{ ((now() - states[zone_sensor].last_changed).total_seconds() | default(999, true) | int) if (zone_sensor) else 999 }}"
+  # zone_state: "{{ iif(states(zone_sensor) == 'on', 'open', 'close') if (zone_sensor) else None }}"
+  # zone_last_changed: "{{ ((now() - states[zone_sensor].last_changed).total_seconds() | default(999, true) | int) if (zone_sensor) else 999 }}"
+  zone_state: "{{ 'open' if (zone_sensor is defined and zone_sensor is string and states(zone_sensor) == 'on') else 'close' }}"
+  zone_last_changed: "{{ ((now() - states[zone_sensor].last_changed).total_seconds() | default(999, true) | int) if (zone_sensor is defined and zone_sensor is string and states[zone_sensor] is not none) else 999 }}"
   # heating
   heating_device: !input heating_device
-  heating_state: "{{ iif(states(heating_device.entity_id) != 'off') if (heating_device) else None }}"
-  heating_temp: "{{ state_attr(heating_device.entity_id, 'temperature') if (heating_device) else None }}"
-  heating_max_temp: "{{ state_attr(heating_device.entity_id, 'max_temp') if (heating_device) else None }}"
-  heating_boost: "{{ iif(heating_temp == heating_max_temp) if (heating_device) else None }}"
-  heating_last_updated: "{{ ((now() - states[heating_device.entity_id].last_updated).total_seconds() | default(999, true) | int) if (heating_device) else 999 }}"
+  # heating_state: "{{ iif(states(heating_device.entity_id) != 'off') if (heating_device) else None }}"
+  # heating_temp: "{{ state_attr(heating_device.entity_id, 'temperature') if (heating_device) else None }}"
+  # heating_max_temp: "{{ state_attr(heating_device.entity_id, 'max_temp') if (heating_device) else None }}"
+  # heating_boost: "{{ iif(heating_temp == heating_max_temp) if (heating_device) else None }}"
+  # heating_last_updated: "{{ ((now() - states[heating_device.entity_id].last_updated).total_seconds() | default(999, true) | int) if (heating_device) else 999 }}"
+  heating_state: "{{ True if (heating_device is defined and heating_device is not none and states(heating_device.entity_id) != 'off') else False }}"
+  heating_temp: "{{ state_attr(heating_device.entity_id, 'temperature') if (heating_device is defined and heating_device is not none) else None }}"
+  heating_max_temp: "{{ state_attr(heating_device.entity_id, 'max_temp') if (heating_device is defined and heating_device is not none) else 30 }}"
+  heating_boost: "{{ True if (heating_device is defined and heating_device is not none and heating_temp == heating_max_temp) else False }}"
+  heating_last_updated: "{{ ((now() - states[heating_device.entity_id].last_updated).total_seconds() | default(999, true) | int) if (heating_device is defined and heating_device is not none) else 999 }}"
   # schedules
   schedules: !input schedules
   schedule_temp: >
     {% set schedule_states = states.switch | selectattr('entity_id', 'in', schedules.entity_id) | selectattr('attributes.current_slot', 'integer') | first %}
-    {{ (schedule_states.attributes.actions[schedule_states.attributes.current_slot].data.temperature) if (schedule_states) else None }}
+    {{ (schedule_states.attributes.actions[schedule_states.attributes.current_slot].data.temperature) if (schedule_states) else 20 }}
   # timers
   room_off_delay: !input room_off_delay
   room_on_delay: !input room_on_delay
@@ -162,11 +171,16 @@ variables:
   zone_on_timer: "{{ max(room_on_delay - zone_last_changed, 0) if (zone_state == 'close') else (room_on_delay) }}"
   # boost
   boost_timer: !input boost_timer
-  boost_state: "{{ states(boost_timer) if (boost_timer) else None }}"
+  # boost_state: "{{ states(boost_timer) if (boost_timer) else None }}"
+  # boost_max_time_minutes: !input boost_max_time
+  # boost_max_time: "{{ (boost_max_time_minutes | int) * 60 }}"
+  # boost_last_changed: "{{ ((now() - states[boost_timer].last_changed).total_seconds() | default(boost_max_time, true) | int) if (boost_state) else boost_max_time }}"
+  # boost_off_timer: "{{ max(boost_max_time - boost_last_changed, 0) if (boost_state == 'active') else (boost_max_time) }}"
+  boost_state: "{{ states(boost_timer) if (boost_timer is defined and boost_timer is not none) else None }}"
   boost_max_time_minutes: !input boost_max_time
   boost_max_time: "{{ (boost_max_time_minutes | int) * 60 }}"
-  boost_last_changed: "{{ ((now() - states[boost_timer].last_changed).total_seconds() | default(boost_max_time, true) | int) if (boost_state) else boost_max_time }}"
-  boost_off_timer: "{{ max(boost_max_time - boost_last_changed, 0) if (boost_state == 'active') else (boost_max_time) }}"
+  boost_last_changed: "{{ ((now() - states[boost_timer].last_changed).total_seconds() | default(boost_max_time, true) | int) if (boost_state is defined and boost_state is not none) else boost_max_time }}"
+  boost_off_timer: "{{ max(boost_max_time - boost_last_changed, 0) if (boost_state == 'active') else boost_max_time }}"
   # energy saving
   energy_save_enable: !input energy_save_enable
   energy_save_max_temp: !input energy_save_max_temp
@@ -176,7 +190,7 @@ variables:
   # actions
   heating_off: "{{ (heating_state) and ((room_state == 'open') or (zone_state == 'open')) }}"
   heating_reset: "{{ (not heating_state) and (zone_state == 'close') }}"
-  boost_cancel: "{{ (boost_state == 'active' and (boost_last_changed >= boost_max_time)) or ((boost_state != 'active') and (heating_boost)) }}"
+  boost_cancel: "{{ (boost_state == 'active' and (boost_last_changed >= boost_max_time)) or (heating_boost and (heating_off or boost_state != 'active')) }}"
   heating_boost_on: "{{ (heating_state) and (zone_state == 'close') and (not heating_boost) and (boost_state == 'active') and (not boost_cancel) }}"
   heating_boost_off: "{{ (heating_state) and (zone_state == 'close') and (heating_boost) and ((boost_off_timer < 60) or (boost_cancel)) }}"
   energy_save_active: "{{ (heating_state) and (energy_save_enable) and (heating_temp | int(default=0) >= energy_save_max_temp) and (energy_save_timer < 60) }}"
@@ -236,8 +250,8 @@ actions:
                     entity_id: "{{ schedules.entity_id }}"
                 - wait_template: "{{ (states(heating_device.entity_id) == 'heat') and (state_attr(heating_device.entity_id, 'temperature') == schedule_temp) }}"
                   timeout: "00:00:03"
-                  continue_on_timeout: true # Explicitly set to continue if timeout occurs (this is also the default behavior).
-        else: # (not heating_reset) and (not heating_boost_off) and (not energy_save_active)
+                  continue_on_timeout: true
+        else:
           - if:
               - "{{ (heating_boost_on) and (not boost_cancel) }}"
             then:
