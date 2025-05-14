@@ -1,0 +1,225 @@
+blueprint:
+  name: Intelligent heating control
+  domain: automation
+  description: "
+    \n## Intelligent Heating – Energy Saving Without Compromise
+    \nThis blueprint seamlessly links your heating system with window sensors to intelligently manage energy usage while maintaining comfort. It works in tandem with your existing climate schedule and provides useful extensions for advanced control.
+    \n### Core Features:
+    \n- **Automatic heating off when windows are open:** Detects open windows in rooms or the entire zone (e.g. apartment, floor) and turns off the heating after a configurable delay.
+    \n- **Smart reactivation:** Once all windows are closed, the system waits a defined period before automatically turning the heating back on.
+    \n- **Room and zone logic:** Room and zone windows both turn off heating after their own delay. The faster (room or zone) takes effect. If no room sensor is set, only zone logic applies.
+    \n- **Configurable delays:** Choose how quickly the automation reacts to window changes.
+    \n- **Integration with your heating schedule:** Works alongside your existing scheduler, ensuring the heating resumes with the correct target temperature.
+    \n### Optional Enhancements:
+    \n- **Boost mode:** Temporarily raises heating to maximum output for quick temperature increase, controlled via a timer.
+    \n- **Overheat protection:** Optionally enforces a maximum temperature limit during normal operation (excluding boost mode).
+    \n
+    \nThis blueprint is perfect for reducing energy loss from ventilation, while still ensuring your spaces remain comfortably heated and smartly controlled.
+    "
+  input:
+    room_sensor:
+      name: Room window sensor (optional)
+      description: Select a binary sensor that monitors the window status in this room. If not set, the room is considered closed and only the zone sensor is used for control.
+      default: []
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class: window
+    zone_sensor:
+      name: Zone window sensor (optional)
+      description: Select a sensor that monitors the window status for the entire zone (e.g. apartment, floor). If not defined, an open room window will also be treated as an open zone.
+      default: []
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class: window
+    heating_device:
+      name: Heating device
+      description: Select the climate entity (thermostat) that should be controlled by this automation.
+      selector:
+        target:
+          entity:
+            domain: climate
+    schedules:
+      name: Heating schedule (optional)
+      description: Select the switch entity or entities used to activate your heating schedule (e.g. from the Scheduler add-on).
+      default: []
+      selector:
+        target:
+          entity:
+            domain: switch
+    room_off_delay:
+      name: "Room: Window open → Heating off delay"
+      description: Time (in seconds) to wait before turning off the heating after a room window has been opened.
+      default: 15
+      selector:
+        number:
+          min: 0.0
+          max: 30.0
+          unit_of_measurement: seconds
+          step: 1.0
+          mode: slider
+    zone_off_delay:
+      name: "Zone: Window open → Heating off delay"
+      description: Time (in minutes) to wait before turning off the heating after a zone window opens. This overrides the room delay.
+      default: 5
+      selector:
+        number:
+          min: 1.0
+          max: 15.0
+          unit_of_measurement: minutes
+          step: 1.0
+          mode: slider
+    room_on_delay:
+      name: "Room/Zone: All windows closed → Heating on delay"
+      description: Time (in seconds) to wait before turning the heating back on after all windows in the zone are closed.
+      default: 30
+      selector:
+        number:
+          min: 0.0
+          max: 60.0
+          unit_of_measurement: seconds
+          step: 1.0
+          mode: slider
+    boost_mode_timer:
+      name: Boost mode timer (optional)
+      description: Select a timer entity that can be started to trigger a temporary high-output heating phase.
+      default: []
+      selector:
+        entity:
+          domain: timer
+    boost_mode_max_duration:
+      name: Boost mode duration limit
+      description: Maximum number of minutes the heating may remain in boost mode before returning to normal operation.
+      default: 5
+      selector:
+        number:
+          min: 1.0
+          max: 15.0
+          unit_of_measurement: minutes
+          step: 1.0
+          mode: slider
+    temp_limit_enable:
+      name: Overheat protection
+      description: Enable this option to activate a safeguard that prevents overheating during regular operation (excludes boost mode). Optional.
+      default: False
+      selector:
+        boolean: {}
+    temp_limit_max_temp:
+      name: Overheat protection limit
+      description: Define the highest allowed set temperature during normal operation. If this value is reached or exceeded (and boost is not active), the system will respond accordingly.
+      default: 22
+      selector:
+        number:
+          min: 22.0
+          max: 30.0
+          unit_of_measurement: °C
+          step: 1.0
+          mode: slider
+mode: restart
+max_exceeded: silent
+trace:
+  stored_traces: 20
+variables:
+  # room
+  room_sensor: !input room_sensor
+  room_state: "{{ 'open' if (room_sensor is defined and room_sensor is string and states(room_sensor) == 'on') else 'close' }}"
+  room_last_changed: "{{ ((now() - states[room_sensor].last_changed).total_seconds() | default(999, true) | int) if (room_sensor is defined and room_sensor is string and states[room_sensor] is not none) else 999 }}"
+  # zone
+  zone_sensor: !input zone_sensor
+  zone_state: "{{ 'open' if (zone_sensor is defined and zone_sensor is string and states(zone_sensor) == 'on') else room_state }}"
+  zone_last_changed: "{{ ((now() - states[zone_sensor].last_changed).total_seconds() | default(999, true) | int) if (zone_sensor is defined and zone_sensor is string and states[zone_sensor] is not none) else 999 }}"
+  # heating
+  heating_device: !input heating_device
+  heating_device_is_on: "{{ True if (heating_device is defined and heating_device is not none and states(heating_device.entity_id) != 'off') else False }}"
+  heating_device_set_temp: "{{ state_attr(heating_device.entity_id, 'temperature') if (heating_device is defined and heating_device is not none) else None }}"
+  heating_device_max_temp: "{{ state_attr(heating_device.entity_id, 'max_temp') if (heating_device is defined and heating_device is not none) else 30 }}"
+  heating_device_is_boost: "{{ True if (heating_device is defined and heating_device is not none and heating_device_set_temp == heating_device_max_temp) else False }}"
+  heating_device_last_updated: "{{ ((now() - states[heating_device.entity_id].last_updated).total_seconds() | default(999, true) | int) if (heating_device is defined and heating_device is not none) else 999 }}"
+  # schedules
+  schedules: !input schedules
+  schedule_temperature: >
+    {% set schedule_states = states.switch | selectattr('entity_id', 'in', schedules.entity_id) | selectattr('attributes.current_slot', 'integer') | first %}
+    {{ (schedule_states.attributes.actions[schedule_states.attributes.current_slot].data.temperature) if (schedule_states) else 20 }}
+  # timers
+  room_off_delay: !input room_off_delay
+  room_on_delay: !input room_on_delay
+  zone_off_delay_minutes: !input zone_off_delay
+  zone_off_delay: "{{ (zone_off_delay_minutes | int) * 60 }}"
+  room_off_timer: "{{ max(room_off_delay - room_last_changed, 0) if (room_state == 'open') else (room_off_delay) }}"
+  # room_on_timer: "{{ max(room_on_delay - room_last_changed, 0) if (room_state == 'close') else (room_on_delay) }}"
+  zone_off_timer: "{{ max(zone_off_delay - zone_last_changed, 0) if (zone_state == 'open') else (zone_off_delay) }}"
+  zone_on_timer: "{{ max(room_on_delay - zone_last_changed, 0) if (zone_state == 'close') else (room_on_delay) }}"
+  # boost
+  boost_mode_timer: !input boost_mode_timer
+  boost_mode_timer_active: "{{ (states(boost_mode_timer) == 'active') if (boost_mode_timer is defined and boost_mode_timer is not none) else False }}" 
+  boost_mode_timer_runtime: "{{ ((now() - states[boost_mode_timer].last_changed).total_seconds() | default(0, true) | int) if (boost_mode_timer_active) else 0 }}"
+  boost_mode_max_duration_minutes: !input boost_mode_max_duration
+  boost_mode_max_duration: "{{ (boost_mode_max_duration_minutes | default(5, true) | int) * 60 }}"
+  boost_mode_off_timer: "{{ max(boost_mode_max_duration - boost_mode_timer_runtime, 0) }}"
+  boost_mode_timer_ends: "{{ (boost_mode_off_timer + 1) < 60 }}" 
+  # energy saving
+  temp_limit_enable: !input temp_limit_enable
+  temp_limit_max_temp: !input temp_limit_max_temp
+  temp_limit_alarm: "{{ (temp_limit_enable and ((heating_device_set_temp | default(0, true) | int) >= temp_limit_max_temp)) if (not boost_mode_timer_active) else False }}"
+  # actions
+  control_mode_off: "{{ (heating_device_is_on and (room_state == 'open' or zone_state == 'open')) }}"
+  control_mode_heat: "{{ (not heating_device_is_on and zone_state == 'close') }}"
+  control_mode_boost: "{{ (heating_device_is_on and zone_state == 'close' and boost_mode_timer_active) }}"
+  target_temperature_room: "{{ schedule_temperature if (control_mode_heat or temp_limit_alarm or (heating_device_is_boost and not control_mode_boost and not boost_mode_timer_ends)) else None }}"
+  target_temperature_boost: "{{ heating_device_max_temp if ((control_mode_boost and not heating_device_is_boost and not boost_mode_timer_ends) and set_temperature_room is none) else None }}"
+  target_temperature: "{{ (target_temperature_room if (target_temperature_room is not none) else target_temperature_boost) if (target_temperature_room is not none or target_temperature_boost is not none) else None }}"
+  hvac_mode: "{{ 'off' if (control_mode_off) else 'heat' }}"
+  boost_mode_timer_cancel: "{{ (boost_mode_timer_active and not (control_mode_boost and not boost_mode_timer_ends)) }}"
+triggers:
+  - trigger: state
+    entity_id: !input room_sensor
+  - trigger: state
+    entity_id: !input zone_sensor
+  - trigger: state
+    entity_id: !input boost_mode_timer
+  - trigger: time_pattern
+    minutes: "/1"
+actions:
+  # Climate: set temperature
+  - if:
+      - "{{ (target_temperature is not none) }}"
+    then:
+      - delay:
+          seconds: "{{ boost_mode_off_timer if (control_mode_boost and boost_mode_timer_ends) else 0 }}"
+      - service: climate.set_temperature
+        data:
+          temperature: "{{ target_temperature }}"
+        target:
+          entity_id: "{{ heating_device.entity_id }}"
+      - wait_template: "{{ (states(heating_device.entity_id) != 'off') and (state_attr(heating_device.entity_id, 'temperature') == target_temperature) }}"
+        timeout: "00:00:10"
+        continue_on_timeout: true
+  # Climate: set HVAC mode
+  - if:
+      - "{{ (control_mode_off or control_mode_heat) }}"
+    then:
+      - delay:
+          seconds: "{{ (min(room_off_timer, zone_off_timer) if (room_state == 'open') else zone_off_timer) if (control_mode_off) else zone_on_timer }}"
+      - service: climate.set_hvac_mode
+        data:
+          hvac_mode: "{{ hvac_mode }}"
+        target:
+          entity_id: "{{ heating_device.entity_id }}"
+      - wait_template: "{{ (states(heating_device.entity_id) == hvac_mode) }}"
+        timeout: "00:00:10"
+        continue_on_timeout: true
+  # Schedule: switch on
+  - if:
+      - "{{ control_mode_heat }}"
+    then:
+      - service: switch.turn_on
+        target:
+          entity_id: "{{ schedules.entity_id }}"
+  # Timer: cancel
+  - if:
+      - "{{ boost_mode_timer_cancel }}"
+    then:
+      - service: timer.cancel
+        target:
+          entity_id: "{{ boost_mode_timer }}"
