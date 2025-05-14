@@ -2,7 +2,7 @@ blueprint:
   name: Intelligent heating control
   domain: automation
   description: "
-    \n## Intelligent Heating – Energy Saving Without Compromise
+    \n## Intelligent heating control – Energy saving without compromise
     \nThis blueprint seamlessly links your heating system with window sensors to intelligently manage energy usage while maintaining comfort. It works in tandem with your existing climate schedule and provides useful extensions for advanced control.
     \n### Core Features:
     \n- **Automatic heating off when windows are open:** Detects open windows in rooms or the entire zone (e.g. apartment, floor) and turns off the heating after a configurable delay.
