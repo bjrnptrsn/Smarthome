@@ -37,9 +37,8 @@ blueprint:
       name: Heating device
       description: Select the climate entity (thermostat) that should be controlled by this automation.
       selector:
-        target:
-          entity:
-            domain: climate
+        entity:
+          domain: climate
     schedules:
       name: Heating schedule (optional)
       description: Select the switch entity or entities used to activate your heating schedule (e.g. from the Scheduler add-on).
@@ -167,7 +166,7 @@ variables:
   control_mode_heat: "{{ (not heating_device_is_on and zone_state == 'close') }}"
   control_mode_boost: "{{ (heating_device_is_on and zone_state == 'close' and boost_mode_timer_active) }}"
   target_temperature_room: "{{ schedule_temperature if (control_mode_heat or temp_limit_alarm or (heating_device_is_boost and not control_mode_boost and not boost_mode_timer_ends)) else None }}"
-  target_temperature_boost: "{{ heating_device_max_temp if ((control_mode_boost and not heating_device_is_boost and not boost_mode_timer_ends) and set_temperature_room is none) else None }}"
+  target_temperature_boost: "{{ heating_device_max_temp if ((control_mode_boost and not heating_device_is_boost and not boost_mode_timer_ends) and target_temperature_room is none) else None }}"
   target_temperature: "{{ (target_temperature_room if (target_temperature_room is not none) else target_temperature_boost) if (target_temperature_room is not none or target_temperature_boost is not none) else None }}"
   hvac_mode: "{{ 'off' if (control_mode_off) else 'heat' }}"
   boost_mode_timer_cancel: "{{ (boost_mode_timer_active and not (control_mode_boost and not boost_mode_timer_ends)) }}"
