@@ -130,11 +130,11 @@ variables:
   zone_last_changed: "{{ ((now() - states[zone_sensor].last_changed).total_seconds() | default(999, true) | int) if (zone_sensor is defined and zone_sensor is string and states[zone_sensor] is not none) else 999 }}"
   # heating
   heating_device: !input heating_device
-  heating_device_is_on: "{{ True if (heating_device is defined and heating_device is not none and states(heating_device.entity_id) != 'off') else False }}"
-  heating_device_set_temp: "{{ state_attr(heating_device.entity_id, 'temperature') if (heating_device is defined and heating_device is not none) else None }}"
-  heating_device_max_temp: "{{ state_attr(heating_device.entity_id, 'max_temp') if (heating_device is defined and heating_device is not none) else 30 }}"
+  heating_device_is_on: "{{ True if (heating_device is defined and heating_device is not none and states(heating_device) != 'off') else False }}"
+  heating_device_set_temp: "{{ state_attr(heating_device, 'temperature') if (heating_device is defined and heating_device is not none) else None }}"
+  heating_device_max_temp: "{{ state_attr(heating_device, 'max_temp') if (heating_device is defined and heating_device is not none) else 30 }}"
   heating_device_is_boost: "{{ True if (heating_device is defined and heating_device is not none and heating_device_set_temp == heating_device_max_temp) else False }}"
-  heating_device_last_updated: "{{ ((now() - states[heating_device.entity_id].last_updated).total_seconds() | default(999, true) | int) if (heating_device is defined and heating_device is not none) else 999 }}"
+  heating_device_last_updated: "{{ ((now() - states[heating_device].last_updated).total_seconds() | default(999, true) | int) if (heating_device is defined and heating_device is not none) else 999 }}"
   # schedules
   schedules: !input schedules
   schedule_temperature: >
@@ -190,8 +190,8 @@ actions:
         data:
           temperature: "{{ target_temperature }}"
         target:
-          entity_id: "{{ heating_device.entity_id }}"
-      - wait_template: "{{ (states(heating_device.entity_id) != 'off') and (state_attr(heating_device.entity_id, 'temperature') == target_temperature) }}"
+          entity_id: "{{ heating_device }}"
+      - wait_template: "{{ (states(heating_device) != 'off') and (state_attr(heating_device, 'temperature') == target_temperature) }}"
         timeout: "00:00:10"
         continue_on_timeout: true
   # Climate: set HVAC mode
@@ -204,8 +204,8 @@ actions:
         data:
           hvac_mode: "{{ hvac_mode }}"
         target:
-          entity_id: "{{ heating_device.entity_id }}"
-      - wait_template: "{{ (states(heating_device.entity_id) == hvac_mode) }}"
+          entity_id: "{{ heating_device }}"
+      - wait_template: "{{ (states(heating_device) == hvac_mode) }}"
         timeout: "00:00:10"
         continue_on_timeout: true
   # Schedule: switch on
